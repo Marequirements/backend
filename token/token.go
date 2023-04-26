@@ -2,10 +2,56 @@ package token
 
 import (
 	"math/rand"
+	"sync"
 	"time"
 )
 
-func generateToken() string {
+type TokenStorage struct {
+	tokens map[string]string
+	mutex  sync.Mutex
+}
+
+var tokenStorageInstance *TokenStorage
+var once sync.Once
+
+func getTokenStorageInstance() *TokenStorage {
+	once.Do(func() {
+		tokenStorageInstance = &TokenStorage{
+			tokens: make(map[string]string),
+		}
+	})
+	return tokenStorageInstance
+}
+
+func (t *TokenStorage) addToken(key string, value string) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	t.tokens[key] = value
+}
+
+func (t *TokenStorage) checkToken(key string, value string) bool {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	if t.tokens[key] == value {
+		return true
+	}
+	return false
+}
+
+func (t *TokenStorage) deleteToken(key string, value string) bool {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	if t.checkToken(key, value) {
+		delete(t.tokens, key)
+		return true
+	}
+	return false
+}
+
+func (*TokenStorage) generateToken() string {
 	rand.Seed(time.Now().UnixNano())
 
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -16,43 +62,3 @@ func generateToken() string {
 	}
 	return result
 }
-
-// package token
-
-// import (
-//     "sync"
-// )
-
-// type Token struct {
-//     // Add any fields you need for the token struct
-// }
-
-// type TokenSingleton struct {
-//     tokens map[string]*Token
-//     mutex  sync.Mutex
-// }
-
-// var instance *TokenSingleton
-
-// func GetInstance() *TokenSingleton {
-//     if instance == nil {
-//         instance = &TokenSingleton{
-//             tokens: make(map[string]*Token),
-//         }
-//     }
-//     return instance
-// }
-
-// func (ts *TokenSingleton) GetToken(key string) *Token {
-//     ts.mutex.Lock()
-//     defer ts.mutex.Unlock()
-
-//     if token, ok := ts.tokens[key]; ok {
-//         return token
-//     }
-
-//     // If the token doesn't exist, create a new one and add it to the map
-//     token := &Token{}
-//     ts.tokens[key] = token
-//     return token
-// }
