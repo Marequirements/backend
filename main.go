@@ -1,6 +1,7 @@
 package main
 
 import (
+	"back-end/token"
 	"log"
 	"net/http"
 
@@ -10,6 +11,9 @@ import (
 func main() {
 	router := chi.NewRouter()
 
+	ts := token.GetTokenStorageInstance()
+	token := ts.GenerateToken()
+	log.Println("generetad token" + token)
 	err := http.ListenAndServe(":3000", router)
 	if err != nil {
 		log.Println(err)

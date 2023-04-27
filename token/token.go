@@ -14,7 +14,7 @@ type TokenStorage struct {
 var tokenStorageInstance *TokenStorage
 var once sync.Once
 
-func getTokenStorageInstance() *TokenStorage {
+func GetTokenStorageInstance() *TokenStorage {
 	once.Do(func() {
 		tokenStorageInstance = &TokenStorage{
 			tokens: make(map[string]string),
@@ -23,14 +23,14 @@ func getTokenStorageInstance() *TokenStorage {
 	return tokenStorageInstance
 }
 
-func (t *TokenStorage) addToken(key string, value string) {
+func (t *TokenStorage) AddToken(key string, value string) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
 	t.tokens[key] = value
 }
 
-func (t *TokenStorage) checkToken(key string, value string) bool {
+func (t *TokenStorage) CheckToken(key string, value string) bool {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -40,18 +40,18 @@ func (t *TokenStorage) checkToken(key string, value string) bool {
 	return false
 }
 
-func (t *TokenStorage) deleteToken(key string, value string) bool {
+func (t *TokenStorage) DeleteToken(key string, value string) bool {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	if t.checkToken(key, value) {
+	if t.CheckToken(key, value) {
 		delete(t.tokens, key)
 		return true
 	}
 	return false
 }
 
-func (*TokenStorage) generateToken() string {
+func (*TokenStorage) GenerateToken() string {
 	rand.Seed(time.Now().UnixNano())
 
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
