@@ -24,46 +24,6 @@ func NewStudentController(db *mongo.Client, ts *token.TokenStorage) *StudentCont
 	return &StudentController{db: db, ts: ts}
 }
 
-// func (uc *StudentController) Login(w http.ResponseWriter, r *http.Request) {
-// 	var user model.User
-// 	err := json.NewDecoder(r.Body).Decode(&user)
-// 	if err != nil {
-// 		http.Error(w, "Invalid request body", http.StatusBadRequest)
-// 		return
-// 	}
-// 	var foundUser model.User
-// 	err = uc.db.Database("mydb").Collection("users").FindOne(context.Background(), bson.M{"username": user.Username}).Decode(&foundUser)
-// 	if err != nil {
-// 		log.Println("Error retrieving user from database:", err)
-// 		http.Error(w, "Error retrieving user from database", http.StatusInternalServerError)
-// 		return
-// 	}
-
-// 	if foundUser.Username == "" {
-// 		http.Error(w, "User not found", http.StatusUnauthorized)
-// 		return
-// 	}
-
-// 	passwordHash := foundUser["password"].(string)
-// 	err = model.CheckPassword(user.Password, passwordHash)
-// 	if err != nil {
-// 		log.Println("Error checking password:", err)
-// 		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
-// 		return
-// 	}
-
-// 	// Generate a new token and store it in the token storage
-// 	t := token.GetTokenStorageInstance().GenerateToken()
-// 	t.GetTokenStorageInstance().AddToken(user.Username, t)
-
-// 	// Return the token as a response
-// 	w.WriteHeader(http.StatusOK)
-// 	w.Header().Set("Content-Type", "application/json")
-// 	json.NewEncoder(w).Encode(map[string]string{
-// 		"token": token,
-// 	})
-// }
-
 func (uc *StudentController) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var loginRequest model.LoginRequest
 
@@ -96,7 +56,7 @@ func (uc *StudentController) HandleLogin(w http.ResponseWriter, r *http.Request)
 func (uc *StudentController) CheckLogin(username, password string) (bool, string) {
 
 	// Get a handle to the "user" collection.
-	collection := uc.db.Database("kasvlearning").Collection("user")
+	collection := uc.db.Database("BrainBoard").Collection("user")
 
 	// Search for a user with the specified username.
 	var user model.User
