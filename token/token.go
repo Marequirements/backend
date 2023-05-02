@@ -1,6 +1,7 @@
 package token
 
 import (
+	"log"
 	"math/rand"
 	"sync"
 	"time"
@@ -34,21 +35,24 @@ func (t *TokenStorage) CheckToken(key string, value string) bool {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
+	log.Println("checking user: " + key + " and token: " + value)
 	if t.tokens[key] == value {
+		log.Println("found token and value")
 		return true
 	}
 	return false
 }
 
 func (t *TokenStorage) DeleteToken(key string, value string) bool {
+	response := false
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	if t.CheckToken(key, value) {
-		delete(t.tokens, key)
-		return true
-	}
-	return false
+	log.Println("Deleting token for key:", key, "with value:", value)
+	delete(t.tokens, key)
+	log.Println("Token deleted for key:", key, "with value:", value)
+	response = true
+	return response
 }
 
 func (*TokenStorage) GenerateToken() string {
