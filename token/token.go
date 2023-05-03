@@ -1,6 +1,7 @@
 package token
 
 import (
+	"errors"
 	"log"
 	"math/rand"
 	"sync"
@@ -9,7 +10,7 @@ import (
 
 type TokenStorage struct {
 	tokens map[string]string
-	mutex  sync.Mutex
+	mutex  sync.RWMutex
 }
 
 var tokenStorageInstance *TokenStorage
@@ -65,4 +66,16 @@ func (*TokenStorage) GenerateToken() string {
 		result += string(charset[rand.Intn(len(charset))])
 	}
 	return result
+}
+func (ts *TokenStorage) GetUsernameByToken(token string) (string, error) {
+	ts.mutex.RLock() // Use ts.mutex instead of ts.mu
+	defer ts.mutex.RUnlock()
+
+	for username, userToken := range ts.tokens {
+		if userToken == token {
+			return username, nil
+		}
+	}
+
+	return "", errors.New("Token not found")
 }

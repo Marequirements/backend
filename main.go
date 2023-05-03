@@ -31,6 +31,12 @@ func main() {
 
 	router.Post("/logout", uc.HandleLogout)
 
+	router.Post("/add-student", uc.HandleAddStudent)
+
+	router.Delete("/delete-student", uc.HandleDeleteStudent)
+
+	router.Put("/edit-student", uc.HandleEditStudent)
+
 	log.Println("Starting server...")
 	err = http.ListenAndServe(":3000", router)
 	if err != nil {

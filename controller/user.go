@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"log"
 	"net/http"
 
@@ -121,4 +122,226 @@ func (uc *StudentController) HandleLogout(w http.ResponseWriter, r *http.Request
 	// If the token doesn't match, return an error response
 	log.Println("Invalid token for user:", body.Username)
 	http.Error(w, "Invalid token for the given username", http.StatusUnauthorized)
+
+}
+func (uc *StudentController) HandleAddStudent(w http.ResponseWriter, r *http.Request) {
+	// Get the token from the header
+	token := r.Header.Get("token")
+
+	if token == "" {
+		http.Error(w, "Token not provided", http.StatusBadRequest)
+		return
+	}
+
+	// Get the username associated with the token
+	username, err := uc.ts.GetUsernameByToken(token)
+	if err != nil {
+		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	// Check if the user has the teacher role
+	role, err := uc.GetUserRole(username)
+	if err != nil || role != "teacher" {
+		http.Error(w, "Unauthorized access", http.StatusForbidden)
+		return
+	}
+
+	// Decode the student details from the request body
+	var student model.NewStudent
+	if err := json.NewDecoder(r.Body).Decode(&student); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Add the student to the database
+	err = uc.AddStudent(student)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+}
+func (uc *StudentController) AddStudent(student model.NewStudent) error {
+	// Get a handle to the "user" collection
+	collection := uc.db.Database("BrainBoard").Collection("user")
+
+	// Check if the username is already taken
+	filter := bson.M{"username": student.Username}
+	var existingUser model.NewStudent
+	err := collection.FindOne(context.Background(), filter).Decode(&existingUser)
+	if err != mongo.ErrNoDocuments {
+		return fmt.Errorf("Username already taken")
+	}
+
+	// Hash the student's password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(student.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	// Set the hashed password and role
+	student.Password = string(hashedPassword)
+	student.Role = "student"
+
+	// Insert the new student into the collection
+	_, err = collection.InsertOne(context.Background(), student)
+	return err
+}
+func (uc *StudentController) GetUserRole(username string) (string, error) {
+	// Get a handle to the "user" collection.
+	collection := uc.db.Database("BrainBoard").Collection("user")
+
+	// Search for a user with the specified username.
+	var user model.NewStudent
+	filter := bson.M{"username": username}
+	err := collection.FindOne(context.Background(), filter).Decode(&user)
+
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Println("No matching user found:", username)
+		} else {
+			log.Println(err)
+		}
+		return "", err
+	}
+	// Return the user's role
+	return user.Role, nil
+}
+func (uc *StudentController) HandleDeleteStudent(w http.ResponseWriter, r *http.Request) {
+	// Get the token from the header
+	token := r.Header.Get("token")
+
+	if token == "" {
+		http.Error(w, "Token not provided", http.StatusBadRequest)
+		return
+	}
+
+	// Get the username associated with the token
+	username, err := uc.ts.GetUsernameByToken(token)
+	if err != nil {
+		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	// Check if the user has the teacher role
+	role, err := uc.GetUserRole(username)
+	if err != nil || role != "teacher" {
+		http.Error(w, "Unauthorized access", http.StatusForbidden)
+		return
+	}
+
+	// Get the student's ID from the request body
+	var body struct {
+		StudentID string `json:"studentId"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Delete the student from the database
+	err = uc.DeleteStudent(body.StudentID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+func (uc *StudentController) DeleteStudent(studentID string) error {
+	// Get a handle to the "user" collection
+	collection := uc.db.Database("BrainBoard").Collection("user")
+
+	// Convert the studentID string to an ObjectID
+	objID, err := primitive.ObjectIDFromHex(studentID)
+	if err != nil {
+		return fmt.Errorf("Invalid student ID")
+	}
+
+	// Delete the student from the collection
+	filter := bson.M{"_id": objID, "role": "student"}
+	res, err := collection.DeleteOne(context.Background(), filter)
+	if err != nil {
+		return err
+	}
+
+	if res.DeletedCount == 0 {
+		return fmt.Errorf("No student found with the specified ID")
+	}
+
+	return nil
+}
+
+func (uc *StudentController) HandleEditStudent(w http.ResponseWriter, r *http.Request) {
+	token := r.Header.Get("token")
+
+	if token == "" {
+		http.Error(w, "Token not provided", http.StatusBadRequest)
+		return
+	}
+
+	username, err := uc.ts.GetUsernameByToken(token)
+	if err != nil {
+		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	role, err := uc.GetUserRole(username)
+	if err != nil || role != "teacher" {
+		http.Error(w, "Unauthorized access", http.StatusForbidden)
+		return
+	}
+
+	var editRequest model.EditStudentRequest
+	if err := json.NewDecoder(r.Body).Decode(&editRequest); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err = uc.EditStudent(editRequest)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (uc *StudentController) EditStudent(editRequest model.EditStudentRequest) error {
+	collection := uc.db.Database("BrainBoard").Collection("user")
+
+	objID, err := primitive.ObjectIDFromHex(editRequest.StudentID)
+	if err != nil {
+		return fmt.Errorf("Invalid student ID")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(editRequest.NewStudent.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			"username": editRequest.NewStudent.Username,
+			"password": string(hashedPassword),
+			"name":     editRequest.NewStudent.Name,
+			"surname":  editRequest.NewStudent.Surname,
+			"class":    editRequest.NewStudent.Class,
+		},
+	}
+
+	filter := bson.M{"_id": objID, "role": "student"}
+	res, err := collection.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		return err
+	}
+
+	if res.MatchedCount == 0 {
+		return fmt.Errorf("No student found with the specified ID")
+	}
+
+	return nil
 }
