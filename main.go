@@ -12,7 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var ts *token.TokenStorage
+//var ts *token.TokenStorage
 
 func main() {
 	router := chi.NewRouter()
@@ -24,22 +24,26 @@ func main() {
 	}
 	defer client.Disconnect(context.Background())
 
+	ts := token.GetTokenStorageInstance()
 	//Created user controller
 	uc := controller.NewStudentController(client, token.GetTokenStorageInstance())
+	subjectc := controller.NewSubjectController(client, ts, uc)
 	//tsc := controller.NewTaskController(client, token.GetTokenStorageInstance())
-	taskController := controller.NewTaskController(client, token.GetTokenStorageInstance(), uc)
+	taskController := controller.NewTaskController(client, ts, uc)
 
 	router.Post("/login", uc.HandleLogin)
 
 	router.Post("/logout", uc.HandleLogout)
 
 	router.Post("/add-student", uc.HandleAddStudent)
+	router.Post("/add-subject", subjectc.HandleNewSubject)
 
 	router.Delete("/delete-student", uc.HandleDeleteStudent)
 
 	router.Put("/edit-student", uc.HandleEditStudent)
 
 	router.Get("/tasks", taskController.GetTasks)
+
 	log.Println("Starting server...")
 	err = http.ListenAndServe(":3000", router)
 	if err != nil {
