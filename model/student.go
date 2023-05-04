@@ -12,3 +12,8 @@ type NewStudent struct {
 	Surname  string             `json:"surname" bson:"surname"`
 	Class    primitive.ObjectID `json:"class" bson:"class"`
 }
+
+type EditStudentRequest struct {
+	StudentID  string     `json:"studentId"`
+	NewStudent NewStudent `json:"newStudent"`
+}
