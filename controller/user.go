@@ -25,14 +25,14 @@ func NewStudentController(db *mongo.Client, ts *token.TokenStorage) *StudentCont
 	return &StudentController{db: db, ts: ts}
 }
 
-func (uc *StudentController) HandleLogin(w http.ResponseWriter, r *http.Request) {
+func (sc *StudentController) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var loginRequest model.LoginRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	isValid, role := uc.CheckLogin(loginRequest.Username, loginRequest.Password)
+	isValid, role := sc.CheckLogin(loginRequest.Username, loginRequest.Password)
 	log.Println("validated login")
 	if !isValid {
 		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
@@ -40,8 +40,8 @@ func (uc *StudentController) HandleLogin(w http.ResponseWriter, r *http.Request)
 	}
 	log.Println("login is valid")
 	// Generate a new token and write it to the response body.
-	token := uc.ts.GenerateToken()
-	uc.ts.AddToken(loginRequest.Username, token)
+	token := sc.ts.GenerateToken()
+	sc.ts.AddToken(loginRequest.Username, token)
 	response := struct {
 		Token string `json:"token"`
 		Role  string `json:"role"`
@@ -54,10 +54,10 @@ func (uc *StudentController) HandleLogin(w http.ResponseWriter, r *http.Request)
 
 }
 
-func (uc *StudentController) CheckLogin(username, password string) (bool, string) {
+func (sc *StudentController) CheckLogin(username, password string) (bool, string) {
 
 	// Get a handle to the "user" collection.
-	collection := uc.db.Database("BrainBoard").Collection("user")
+	collection := sc.db.Database("BrainBoard").Collection("user")
 
 	// Search for a user with the specified username.
 	var user model.User
@@ -87,7 +87,7 @@ func (uc *StudentController) CheckLogin(username, password string) (bool, string
 	return true, user.Role
 }
 
-func (uc *StudentController) HandleLogout(w http.ResponseWriter, r *http.Request) {
+func (sc *StudentController) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	log.Println("Called logout request")
 	// Get the token from the header
 	token := r.Header.Get("token")
@@ -109,10 +109,10 @@ func (uc *StudentController) HandleLogout(w http.ResponseWriter, r *http.Request
 	}
 	log.Println("Got body username: " + body.Username)
 	// Check if the username has the given token value in the map
-	if uc.ts.CheckToken(body.Username, token) {
+	if sc.ts.CheckToken(body.Username, token) {
 		log.Println("token is in map")
 		// If the token matches, remove the entry from the map
-		uc.ts.DeleteToken(body.Username, token)
+		sc.ts.DeleteToken(body.Username, token)
 		log.Println("Token deleted")
 		w.WriteHeader(http.StatusOK)
 		log.Println("Token deleted for user:", body.Username)
@@ -124,7 +124,7 @@ func (uc *StudentController) HandleLogout(w http.ResponseWriter, r *http.Request
 	http.Error(w, "Invalid token for the given username", http.StatusUnauthorized)
 
 }
-func (uc *StudentController) HandleAddStudent(w http.ResponseWriter, r *http.Request) {
+func (sc *StudentController) HandleAddStudent(w http.ResponseWriter, r *http.Request) {
 	// Get the token from the header
 	token := r.Header.Get("token")
 
@@ -134,14 +134,14 @@ func (uc *StudentController) HandleAddStudent(w http.ResponseWriter, r *http.Req
 	}
 
 	// Get the username associated with the token
-	username, err := uc.ts.GetUsernameByToken(token)
+	username, err := sc.ts.GetUsernameByToken(token)
 	if err != nil {
 		http.Error(w, "Invalid token", http.StatusUnauthorized)
 		return
 	}
 
 	// Check if the user has the teacher role
-	role, err := uc.GetUserRole(username)
+	role, err := sc.GetUserRole(username)
 	if err != nil || role != "teacher" {
 		http.Error(w, "Unauthorized access", http.StatusForbidden)
 		return
@@ -155,7 +155,7 @@ func (uc *StudentController) HandleAddStudent(w http.ResponseWriter, r *http.Req
 	}
 
 	// Add the student to the database
-	err = uc.AddStudent(student)
+	err = sc.AddStudent(student)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -163,9 +163,9 @@ func (uc *StudentController) HandleAddStudent(w http.ResponseWriter, r *http.Req
 
 	w.WriteHeader(http.StatusCreated)
 }
-func (uc *StudentController) AddStudent(student model.NewStudent) error {
+func (sc *StudentController) AddStudent(student model.NewStudent) error {
 	// Get a handle to the "user" collection
-	collection := uc.db.Database("BrainBoard").Collection("user")
+	collection := sc.db.Database("BrainBoard").Collection("user")
 
 	// Check if the username is already taken
 	filter := bson.M{"username": student.Username}
@@ -189,9 +189,9 @@ func (uc *StudentController) AddStudent(student model.NewStudent) error {
 	_, err = collection.InsertOne(context.Background(), student)
 	return err
 }
-func (uc *StudentController) GetUserRole(username string) (string, error) {
+func (sc *StudentController) GetUserRole(username string) (string, error) {
 	// Get a handle to the "user" collection.
-	collection := uc.db.Database("BrainBoard").Collection("user")
+	collection := sc.db.Database("BrainBoard").Collection("user")
 
 	// Search for a user with the specified username.
 	var user model.NewStudent
@@ -209,7 +209,7 @@ func (uc *StudentController) GetUserRole(username string) (string, error) {
 	// Return the user's role
 	return user.Role, nil
 }
-func (uc *StudentController) HandleDeleteStudent(w http.ResponseWriter, r *http.Request) {
+func (sc *StudentController) HandleDeleteStudent(w http.ResponseWriter, r *http.Request) {
 	// Get the token from the header
 	token := r.Header.Get("token")
 
@@ -219,14 +219,14 @@ func (uc *StudentController) HandleDeleteStudent(w http.ResponseWriter, r *http.
 	}
 
 	// Get the username associated with the token
-	username, err := uc.ts.GetUsernameByToken(token)
+	username, err := sc.ts.GetUsernameByToken(token)
 	if err != nil {
 		http.Error(w, "Invalid token", http.StatusUnauthorized)
 		return
 	}
 
 	// Check if the user has the teacher role
-	role, err := uc.GetUserRole(username)
+	role, err := sc.GetUserRole(username)
 	if err != nil || role != "teacher" {
 		http.Error(w, "Unauthorized access", http.StatusForbidden)
 		return
@@ -243,7 +243,7 @@ func (uc *StudentController) HandleDeleteStudent(w http.ResponseWriter, r *http.
 	}
 
 	// Delete the student from the database
-	err = uc.DeleteStudent(body.StudentID)
+	err = sc.DeleteStudent(body.StudentID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -251,9 +251,9 @@ func (uc *StudentController) HandleDeleteStudent(w http.ResponseWriter, r *http.
 
 	w.WriteHeader(http.StatusOK)
 }
-func (uc *StudentController) DeleteStudent(studentID string) error {
+func (sc *StudentController) DeleteStudent(studentID string) error {
 	// Get a handle to the "user" collection
-	collection := uc.db.Database("BrainBoard").Collection("user")
+	collection := sc.db.Database("BrainBoard").Collection("user")
 
 	// Convert the studentID string to an ObjectID
 	objID, err := primitive.ObjectIDFromHex(studentID)
@@ -275,7 +275,7 @@ func (uc *StudentController) DeleteStudent(studentID string) error {
 	return nil
 }
 
-func (uc *StudentController) HandleEditStudent(w http.ResponseWriter, r *http.Request) {
+func (sc *StudentController) HandleEditStudent(w http.ResponseWriter, r *http.Request) {
 	token := r.Header.Get("token")
 
 	if token == "" {
@@ -283,13 +283,13 @@ func (uc *StudentController) HandleEditStudent(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	username, err := uc.ts.GetUsernameByToken(token)
+	username, err := sc.ts.GetUsernameByToken(token)
 	if err != nil {
 		http.Error(w, "Invalid token", http.StatusUnauthorized)
 		return
 	}
 
-	role, err := uc.GetUserRole(username)
+	role, err := sc.GetUserRole(username)
 	if err != nil || role != "teacher" {
 		http.Error(w, "Unauthorized access", http.StatusForbidden)
 		return
@@ -301,7 +301,7 @@ func (uc *StudentController) HandleEditStudent(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	err = uc.EditStudent(editRequest)
+	err = sc.EditStudent(editRequest)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -310,8 +310,8 @@ func (uc *StudentController) HandleEditStudent(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusOK)
 }
 
-func (uc *StudentController) EditStudent(editRequest model.EditStudentRequest) error {
-	collection := uc.db.Database("BrainBoard").Collection("user")
+func (sc *StudentController) EditStudent(editRequest model.EditStudentRequest) error {
+	collection := sc.db.Database("BrainBoard").Collection("user")
 
 	objID, err := primitive.ObjectIDFromHex(editRequest.StudentID)
 	if err != nil {

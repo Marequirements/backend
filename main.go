@@ -26,6 +26,8 @@ func main() {
 
 	//Created user controller
 	uc := controller.NewStudentController(client, token.GetTokenStorageInstance())
+	//tsc := controller.NewTaskController(client, token.GetTokenStorageInstance())
+	taskController := controller.NewTaskController(client, token.GetTokenStorageInstance(), uc)
 
 	router.Post("/login", uc.HandleLogin)
 
@@ -37,6 +39,7 @@ func main() {
 
 	router.Put("/edit-student", uc.HandleEditStudent)
 
+	router.Get("/tasks", taskController.GetTasks)
 	log.Println("Starting server...")
 	err = http.ListenAndServe(":3000", router)
 	if err != nil {

@@ -8,6 +8,14 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type UserController struct {
+	db *mongo.Client
+}
+
+func NewUserController(db *mongo.Client) *UserController {
+	return &UserController{db: db}
+}
+
 type User model.User
 
 func GetAllUsers() ([]User, error) {
@@ -41,4 +49,16 @@ func GetAllUsers() ([]User, error) {
 	}
 	return users, nil
 
+}
+func (uc *UserController) GetUserRole(username string) (string, error) {
+	collection := uc.db.Database("BrainBoard").Collection("user")
+	filter := bson.M{"username": username}
+	var user model.User
+
+	err := collection.FindOne(context.Background(), filter).Decode(&user)
+	if err != nil {
+		return "", err
+	}
+
+	return user.Role, nil
 }
