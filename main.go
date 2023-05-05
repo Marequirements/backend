@@ -17,7 +17,7 @@ import (
 func main() {
 	router := chi.NewRouter()
 
-	//coonection to database
+	//conection to database
 	client, err := getDatabase()
 	if err != nil {
 		log.Fatal("Error connecting to MongoDB: ", err)
@@ -35,12 +35,11 @@ func main() {
 
 	router.Post("/logout", uc.HandleLogout)
 
-	router.Post("/add-student", uc.HandleAddStudent)
-	router.Post("/add-subject", subjectc.HandleNewSubject)
+	router.Post("/student", uc.HandleAddStudent)
+	router.Put("/student", uc.HandleEditStudent)
+	router.Delete("/student", uc.HandleDeleteStudent)
 
-	router.Delete("/delete-student", uc.HandleDeleteStudent)
-
-	router.Put("/edit-student", uc.HandleEditStudent)
+	router.Post("/subject", subjectc.HandleNewSubject)
 
 	router.Get("/tasks", taskController.GetTasks)
 
