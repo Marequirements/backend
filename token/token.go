@@ -2,80 +2,112 @@ package token
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"math/rand"
 	"sync"
 	"time"
 )
 
-type TokenStorage struct {
-	tokens map[string]string
+type Storage struct {
+	tokens map[string]Token
 	mutex  sync.RWMutex
 }
 
-var tokenStorageInstance *TokenStorage
+type Token struct {
+	Key   string
+	Value string
+	Role  string
+}
+
+var tokenStorageInstance *Storage
 var once sync.Once
 
-func GetTokenStorageInstance() *TokenStorage {
+func GetTokenStorageInstance() *Storage {
 	once.Do(func() {
-		tokenStorageInstance = &TokenStorage{
-			tokens: make(map[string]string),
+		tokenStorageInstance = &Storage{
+			tokens: make(map[string]Token),
 		}
 	})
 	return tokenStorageInstance
 }
 
-func (t *TokenStorage) AddToken(key string, value string) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+func (ts *Storage) AddToken(key string, value string, role string) {
+	ts.mutex.Lock()
+	defer ts.mutex.Unlock()
 
-	t.tokens[key] = value
+	ts.tokens[key] = Token{Key: key, Value: value, Role: role}
 }
 
-func (t *TokenStorage) CheckToken(key string, value string) bool {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+func (ts *Storage) CheckToken(key string, value string) bool {
+	ts.mutex.Lock()
+	defer ts.mutex.Unlock()
 
 	log.Println("checking user: " + key + " and token: " + value)
-	if t.tokens[key] == value {
+	token, ok := ts.tokens[key]
+	if !ok {
+		return false
+	}
+	if token.Value == value {
 		log.Println("found token and value")
 		return true
 	}
 	return false
 }
 
-func (t *TokenStorage) DeleteToken(key string, value string) bool {
-	response := false
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+func (ts *Storage) DeleteToken(key string, value string) error {
+	ts.mutex.Lock()
+	defer ts.mutex.Unlock()
 
 	log.Println("Deleting token for key:", key, "with value:", value)
-	delete(t.tokens, key)
-	log.Println("Token deleted for key:", key, "with value:", value)
-	response = true
-	return response
-}
-
-func (*TokenStorage) GenerateToken() string {
-	rand.Seed(time.Now().UnixNano())
-
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-	var result string
-	for i := 0; i < 40; i++ {
-		result += string(charset[rand.Intn(len(charset))])
+	storedValue, ok := ts.tokens[key]
+	if !ok {
+		return fmt.Errorf("token not in storage")
 	}
-	return result
+	if storedValue.Value != value {
+		return fmt.Errorf("value does not match")
+	}
+	delete(ts.tokens, key)
+	log.Println("Token deleted for key:", key, "with value:", value)
+	return nil
 }
-func (ts *TokenStorage) GetUsernameByToken(token string) (string, error) {
+
+func (*Storage) GenerateToken() string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	const length = 40
+
+	src := rand.NewSource(time.Now().UnixNano())
+	rnd := rand.New(src)
+
+	result := make([]byte, length)
+	for i := range result {
+		result[i] = charset[rnd.Intn(len(charset))]
+	}
+	return string(result)
+}
+
+func (ts *Storage) GetUsernameByToken(token string) (string, error) {
 	ts.mutex.RLock() // Use ts.mutex instead of ts.mu
 	defer ts.mutex.RUnlock()
 
-	for username, userToken := range ts.tokens {
-		if userToken == token {
-			return username, nil
+	for _, mytoken := range ts.tokens {
+		if mytoken.Value == token {
+			return mytoken.Key, nil
 		}
 	}
 
-	return "", errors.New("Token not found")
+	return "", errors.New("token not found")
+}
+
+func (ts *Storage) GetRoleByToken(token string) (string, error) {
+	ts.mutex.RLock() // Use ts.mutex instead of ts.mu
+	defer ts.mutex.RUnlock()
+
+	for _, mytoken := range ts.tokens {
+		if mytoken.Value == token {
+			return mytoken.Role, nil
+		}
+	}
+
+	return "", errors.New("token not found")
 }
