@@ -13,11 +13,11 @@ import (
 
 type TaskController struct {
 	db *mongo.Client
-	ts *token.TokenStorage
+	ts *token.Storage
 	uc *StudentController
 }
 
-func NewTaskController(db *mongo.Client, ts *token.TokenStorage, uc *StudentController) *TaskController {
+func NewTaskController(db *mongo.Client, ts *token.Storage, uc *StudentController) *TaskController {
 	return &TaskController{db: db, ts: ts, uc: uc}
 }
 

@@ -7,6 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"log"
 	"net/http"
+	"strings"
 
 	"back-end/model"
 	"back-end/token"
@@ -18,35 +19,88 @@ import (
 
 type StudentController struct {
 	db *mongo.Client
-	ts *token.TokenStorage
+	ts *token.Storage
 }
 
-func NewStudentController(db *mongo.Client, ts *token.TokenStorage) *StudentController {
+func NewStudentController(db *mongo.Client, ts *token.Storage) *StudentController {
 	return &StudentController{db: db, ts: ts}
 }
+
+//func (sc *StudentController) HandleLogin(w http.ResponseWriter, r *http.Request) {
+//	var loginRequest model.LoginRequest
+//
+//	if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
+//		http.Error(w, err.Error(), http.StatusBadRequest)
+//		return
+//	}
+//	isValid, role := sc.CheckLogin(loginRequest.Username, loginRequest.Password)
+//	log.Println("validated login")
+//	if !isValid {
+//		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+//		return
+//	}
+//	log.Println("login is valid")
+//	// Generate a new token and write it to the response body.
+//	token := sc.ts.GenerateToken()
+//	sc.ts.AddToken(loginRequest.Username, token)
+//	response := struct {
+//		Token string `json:"token"`
+//		Role  string `json:"role"`
+//	}{Token: token, Role: role}
+//	w.Header().Set("Content-Type", "application/json")
+//	if err := json.NewEncoder(w).Encode(response); err != nil {
+//		http.Error(w, err.Error(), http.StatusInternalServerError)
+//		return
+//	}
+//	w.WriteHeader(http.StatusOK)
+//}
 
 func (sc *StudentController) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var loginRequest model.LoginRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	// Check if the expected fields are present in the JSON object
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&loginRequest); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		errorResponse := struct {
+			Error string `json:"error"`
+		}{Error: "JSON parameters not provided"}
+		if err := json.NewEncoder(w).Encode(errorResponse); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		return
 	}
+
 	isValid, role := sc.CheckLogin(loginRequest.Username, loginRequest.Password)
 	log.Println("validated login")
+
+	//if username or password are not correct sends error
 	if !isValid {
-		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		errorResponse := struct {
+			Error string `json:"error"`
+		}{Error: "Incorrect username or password"}
+		if err := json.NewEncoder(w).Encode(errorResponse); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		return
 	}
-	log.Println("login is valid")
-	// Generate a new token and write it to the response body.
-	token := sc.ts.GenerateToken()
-	sc.ts.AddToken(loginRequest.Username, token)
-	response := struct {
-		Token string `json:"token"`
-		Role  string `json:"role"`
-	}{Token: token, Role: role}
+
+	// Generate a new userToken and write it to the response body.
+	userToken := sc.ts.GenerateToken()
+	sc.ts.AddToken(loginRequest.Username, userToken, role)
+
+	// Write the userToken to the response header using the Bearer scheme.
+	w.Header().Set("Authorization", fmt.Sprintf("Bearer %s", userToken))
 	w.Header().Set("Content-Type", "application/json")
+	response := struct {
+		Role string `json:"role"`
+	}{Role: role}
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -89,54 +143,97 @@ func (sc *StudentController) CheckLogin(username, password string) (bool, string
 
 func (sc *StudentController) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	log.Println("Called logout request")
-	// Get the token from the header
-	token := r.Header.Get("token")
-	log.Println("got header token: " + token)
-	if token == "" {
-		log.Println("Token not provided")
-		http.Error(w, "Token not provided", http.StatusBadRequest)
+
+	// Get the userToken from the Authorization header
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		errorResponse := struct {
+			Error string `json:"error"`
+		}{Error: "Token or username is incorrect"}
+		if err := json.NewEncoder(w).Encode(errorResponse); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		return
 	}
+	log.Println("Bearer token=" + authHeader)
+	userToken := strings.TrimPrefix(authHeader, "Bearer ")
+	if userToken == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		errorResponse := struct {
+			Error string `json:"error"`
+		}{Error: "Token or username is incorrect"}
+		if err := json.NewEncoder(w).Encode(errorResponse); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
+	log.Println("Got userToken:", userToken)
 
 	// Get the username from the request body
 	var body model.User
 	log.Println("got body")
-	err := json.NewDecoder(r.Body).Decode(&body)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	err := decoder.Decode(&body)
 	if err != nil {
-		log.Println("Invalid request body")
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		errorResponse := struct {
+			Error string `json:"error"`
+		}{Error: "JSON parameters not provided"}
+		if err := json.NewEncoder(w).Encode(errorResponse); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		return
 	}
 	log.Println("Got body username: " + body.Username)
-	// Check if the username has the given token value in the map
-	if sc.ts.CheckToken(body.Username, token) {
-		log.Println("token is in map")
-		// If the token matches, remove the entry from the map
-		sc.ts.DeleteToken(body.Username, token)
-		log.Println("Token deleted")
-		w.WriteHeader(http.StatusOK)
-		log.Println("Token deleted for user:", body.Username)
+
+	// Check if the username has the given userToken value in the map
+	err = sc.ts.DeleteToken(body.Username, userToken)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		errorResponse := struct {
+			Error string `json:"error"`
+		}{Error: "Token or username is incorrect"}
+		if err := json.NewEncoder(w).Encode(errorResponse); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		return
 	}
 
-	// If the token doesn't match, return an error response
-	log.Println("Invalid token for user:", body.Username)
-	http.Error(w, "Invalid token for the given username", http.StatusUnauthorized)
-
+	w.WriteHeader(http.StatusOK)
+	//if sc.ts.CheckToken(body.Username, userToken) {
+	//	log.Println("userToken is in map")
+	//	// If the userToken matches, remove the entry from the map
+	//	sc.ts.DeleteToken(body.Username, userToken)
+	//	log.Println("Token deleted")
+	//	w.WriteHeader(http.StatusOK)
+	//	log.Println("Token deleted for user:", body.Username)
+	//	return
+	//}
 }
 func (sc *StudentController) HandleAddStudent(w http.ResponseWriter, r *http.Request) {
-	// Get the token from the header
-	token := r.Header.Get("token")
+	// Get the userToken from the header
+	userToken := r.Header.Get("token")
 
-	if token == "" {
+	if userToken == "" {
 		http.Error(w, "Token not provided", http.StatusBadRequest)
 		return
 	}
 
-	// Get the username associated with the token
-	username, err := sc.ts.GetUsernameByToken(token)
+	// Get the username associated with the userToken
+	username, err := sc.ts.GetUsernameByToken(userToken)
 	if err != nil {
-		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		http.Error(w, "Invalid userToken", http.StatusUnauthorized)
 		return
 	}
 
@@ -210,18 +307,18 @@ func (sc *StudentController) GetUserRole(username string) (string, error) {
 	return user.Role, nil
 }
 func (sc *StudentController) HandleDeleteStudent(w http.ResponseWriter, r *http.Request) {
-	// Get the token from the header
-	token := r.Header.Get("token")
+	// Get the userToken from the header
+	userToken := r.Header.Get("token")
 
-	if token == "" {
+	if userToken == "" {
 		http.Error(w, "Token not provided", http.StatusBadRequest)
 		return
 	}
 
-	// Get the username associated with the token
-	username, err := sc.ts.GetUsernameByToken(token)
+	// Get the username associated with the userToken
+	username, err := sc.ts.GetUsernameByToken(userToken)
 	if err != nil {
-		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		http.Error(w, "Invalid userToken", http.StatusUnauthorized)
 		return
 	}
 
@@ -269,23 +366,23 @@ func (sc *StudentController) DeleteStudent(studentID string) error {
 	}
 
 	if res.DeletedCount == 0 {
-		return fmt.Errorf("No student found with the specified ID")
+		return fmt.Errorf("no student found with the specified ID")
 	}
 
 	return nil
 }
 
 func (sc *StudentController) HandleEditStudent(w http.ResponseWriter, r *http.Request) {
-	token := r.Header.Get("token")
+	userToken := r.Header.Get("token")
 
-	if token == "" {
+	if userToken == "" {
 		http.Error(w, "Token not provided", http.StatusBadRequest)
 		return
 	}
 
-	username, err := sc.ts.GetUsernameByToken(token)
+	username, err := sc.ts.GetUsernameByToken(userToken)
 	if err != nil {
-		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		http.Error(w, "Invalid userToken", http.StatusUnauthorized)
 		return
 	}
 

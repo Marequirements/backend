@@ -13,11 +13,11 @@ import (
 
 type SubjectController struct {
 	db *mongo.Client
-	ts *token.TokenStorage
+	ts *token.Storage
 	sc *StudentController
 }
 
-func NewSubjectController(db *mongo.Client, ts *token.TokenStorage, sc *StudentController) *SubjectController {
+func NewSubjectController(db *mongo.Client, ts *token.Storage, sc *StudentController) *SubjectController {
 	return &SubjectController{db: db, ts: ts, sc: sc}
 }
 
