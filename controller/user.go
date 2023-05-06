@@ -223,12 +223,12 @@ func (sc *StudentController) HandleLogout(w http.ResponseWriter, r *http.Request
 }
 func (sc *StudentController) HandleAddStudent(w http.ResponseWriter, r *http.Request) {
 	// Get the userToken from the header
-	userToken := r.Header.Get("token")
-
-	if userToken == "" {
-		http.Error(w, "Token not provided", http.StatusBadRequest)
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		http.Error(w, "Authorization header not provided", http.StatusBadRequest)
 		return
 	}
+	userToken := strings.TrimPrefix(authHeader, "Bearer ")
 
 	// Get the username associated with the userToken
 	username, err := sc.ts.GetUsernameByToken(userToken)
@@ -308,12 +308,12 @@ func (sc *StudentController) GetUserRole(username string) (string, error) {
 }
 func (sc *StudentController) HandleDeleteStudent(w http.ResponseWriter, r *http.Request) {
 	// Get the userToken from the header
-	userToken := r.Header.Get("token")
-
-	if userToken == "" {
-		http.Error(w, "Token not provided", http.StatusBadRequest)
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		http.Error(w, "Authorization header not provided", http.StatusBadRequest)
 		return
 	}
+	userToken := strings.TrimPrefix(authHeader, "Bearer ")
 
 	// Get the username associated with the userToken
 	username, err := sc.ts.GetUsernameByToken(userToken)
@@ -373,12 +373,12 @@ func (sc *StudentController) DeleteStudent(studentID string) error {
 }
 
 func (sc *StudentController) HandleEditStudent(w http.ResponseWriter, r *http.Request) {
-	userToken := r.Header.Get("token")
-
-	if userToken == "" {
-		http.Error(w, "Token not provided", http.StatusBadRequest)
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		http.Error(w, "Authorization header not provided", http.StatusBadRequest)
 		return
 	}
+	userToken := strings.TrimPrefix(authHeader, "Bearer ")
 
 	username, err := sc.ts.GetUsernameByToken(userToken)
 	if err != nil {

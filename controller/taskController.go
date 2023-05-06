@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"net/http"
+	"strings"
 )
 
 type TaskController struct {
@@ -122,13 +123,12 @@ func (tc *TaskController) GetTasksWithStatus3() ([]model.Task, error) {
 	return tasks, nil
 }
 func (tc *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
-	// Get the token from the header
-	token := r.Header.Get("token")
-
-	if token == "" {
-		http.Error(w, "Token not provided", http.StatusBadRequest)
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		http.Error(w, "Authorization header not provided", http.StatusBadRequest)
 		return
 	}
+	token := strings.TrimPrefix(authHeader, "Bearer ")
 
 	// Get the username associated with the token
 	username, err := tc.uc.ts.GetUsernameByToken(token)
