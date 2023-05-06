@@ -7,7 +7,7 @@ build:
   stage: build
   image: golang:latest
   script:
-    - go build -o main.go .
+    - go build -o app .
 
 package:
   stage: package
@@ -15,7 +15,6 @@ package:
   services:
     - docker:dind
   script:
-    - docker build -t myapp-image .
     - docker push samuelrak/trello-gl:latest
 
 deploy:
