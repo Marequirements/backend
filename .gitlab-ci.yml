@@ -8,15 +8,15 @@ build:
   image: golang:latest
   script:
     - go build -o app .
+    - docker build -t app .
 
 test:
   stage: test
-  image: docker:latest
   script:
     - go test ./..
 
 deploy:
   stage: deploy
-  image: docker:latest
-    - docker run dockerfile
+  script:
+    - docker run app
 
