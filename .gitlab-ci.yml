@@ -11,9 +11,9 @@ build:
 
 test:
   stage: test
-  image: golang:latest
+  image: docker:latest
   script:
-    - ./..
+    - go test ./..
 
 deploy:
   stage: deploy
