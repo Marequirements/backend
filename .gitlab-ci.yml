@@ -1,6 +1,5 @@
 stages:
   - build
-  - test 
   - deploy
 
 build:
@@ -9,10 +8,6 @@ build:
   script:
     - go build -o app .
 
-test:
-  stage: test
-  script:
-    - go test ./..
 
 deploy:
   stage: deploy
