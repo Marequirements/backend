@@ -8,7 +8,6 @@ build:
   image: golang:latest
   script:
     - go build -o app .
-    - sudo docker build -t app .
 
 test:
   stage: test
@@ -17,6 +16,8 @@ test:
 
 deploy:
   stage: deploy
+  image: docker:latest
   script:
-    - sudo docker run app
+    - docker build -t app .
+    - docker run app
 
