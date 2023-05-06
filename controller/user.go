@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"back-end/util"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -62,15 +63,7 @@ func (sc *StudentController) HandleLogin(w http.ResponseWriter, r *http.Request)
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&loginRequest); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		errorResponse := struct {
-			Error string `json:"error"`
-		}{Error: "JSON parameters not provided"}
-		if err := json.NewEncoder(w).Encode(errorResponse); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		util.WriteErrorResponse(w, http.StatusBadRequest, "JSON parameters not provided")
 		return
 	}
 
@@ -79,15 +72,8 @@ func (sc *StudentController) HandleLogin(w http.ResponseWriter, r *http.Request)
 
 	//if username or password are not correct sends error
 	if !isValid {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
-		errorResponse := struct {
-			Error string `json:"error"`
-		}{Error: "Incorrect username or password"}
-		if err := json.NewEncoder(w).Encode(errorResponse); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		util.WriteErrorResponse(w, http.StatusUnauthorized, "Incorrect username or password")
+
 		return
 	}
 
@@ -97,15 +83,10 @@ func (sc *StudentController) HandleLogin(w http.ResponseWriter, r *http.Request)
 
 	// Write the userToken to the response header using the Bearer scheme.
 	w.Header().Set("Authorization", fmt.Sprintf("Bearer %s", userToken))
-	w.Header().Set("Content-Type", "application/json")
 	response := struct {
 		Role string `json:"role"`
 	}{Role: role}
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
+	util.WriteSuccessResponse(w, http.StatusOK, response)
 }
 
 func (sc *StudentController) CheckLogin(username, password string) (bool, string) {
@@ -147,15 +128,7 @@ func (sc *StudentController) HandleLogout(w http.ResponseWriter, r *http.Request
 	// Get the userToken from the Authorization header
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
-		errorResponse := struct {
-			Error string `json:"error"`
-		}{Error: "Token or username is incorrect"}
-		if err := json.NewEncoder(w).Encode(errorResponse); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		util.WriteErrorResponse(w, http.StatusUnauthorized, "Token or username is incorrect")
 		return
 	}
 	log.Println("Bearer token=" + authHeader)
@@ -258,7 +231,7 @@ func (sc *StudentController) HandleAddStudent(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	util.WriteSuccessResponse(w, http.StatusCreated, nil)
 }
 func (sc *StudentController) AddStudent(student model.NewStudent) error {
 	// Get a handle to the "user" collection
@@ -404,7 +377,7 @@ func (sc *StudentController) HandleEditStudent(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	util.WriteSuccessResponse(w, http.StatusCreated, nil)
 }
 
 func (sc *StudentController) EditStudent(editRequest model.EditStudentRequest) error {
