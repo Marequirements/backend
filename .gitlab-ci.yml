@@ -9,7 +9,7 @@ build:
   script:
     - go build -o app .
 
-package:
+test:
   stage: test
   script:
     - ./..
