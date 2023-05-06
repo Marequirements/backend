@@ -1,6 +1,6 @@
 stages:
   - build
-  - package  
+  - test 
   - deploy
 
 build:
@@ -10,19 +10,11 @@ build:
     - go build -o app .
 
 package:
-  stage: package
-  image: docker:latest
-  services:
-    - docker:dind
+  stage: test
   script:
-    - docker push samuelrak/trello-gl:latest
+    - ./..
 
 deploy:
   stage: deploy
-  image: docker:latest
-  services:
-    - docker:dind
-  script:
-    - docker pull samuelrak/trello-gl:latest
     - docker run dockerfile
 
