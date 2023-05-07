@@ -27,35 +27,6 @@ func NewStudentController(db *mongo.Client, ts *token.Storage) *StudentControlle
 	return &StudentController{db: db, ts: ts}
 }
 
-//func (sc *StudentController) HandleLogin(w http.ResponseWriter, r *http.Request) {
-//	var loginRequest model.LoginRequest
-//
-//	if err := json.NewDecoder(r.Body).Decode(&loginRequest); err != nil {
-//		http.Error(w, err.Error(), http.StatusBadRequest)
-//		return
-//	}
-//	isValid, role := sc.CheckLogin(loginRequest.Username, loginRequest.Password)
-//	log.Println("validated login")
-//	if !isValid {
-//		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
-//		return
-//	}
-//	log.Println("login is valid")
-//	// Generate a new token and write it to the response body.
-//	token := sc.ts.GenerateToken()
-//	sc.ts.AddToken(loginRequest.Username, token)
-//	response := struct {
-//		Token string `json:"token"`
-//		Role  string `json:"role"`
-//	}{Token: token, Role: role}
-//	w.Header().Set("Content-Type", "application/json")
-//	if err := json.NewEncoder(w).Encode(response); err != nil {
-//		http.Error(w, err.Error(), http.StatusInternalServerError)
-//		return
-//	}
-//	w.WriteHeader(http.StatusOK)
-//}
-
 func (sc *StudentController) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var loginRequest model.LoginRequest
 
