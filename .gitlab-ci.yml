@@ -1,21 +1,21 @@
 stages:
   - build
-  - deploy
+  - run
 
 build:
   stage: build
-  image: docker:dind
+  image: docker:latest
   services:
     - docker:dind
   script:
     - docker build -t dockerfile .
 
-
-deploy:
-  stage: deploy
-  image: docker:dind
+run:
+  stage: run
+  image: docker:latest
   services:
     - docker:dind
   script:
-    - docker run dockerfile
+    - docker run -p 8080:8080 dockerfile
+
 
