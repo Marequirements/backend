@@ -4,15 +4,18 @@ stages:
 
 build:
   stage: build
-  image: golang:latest
+  image: docker:dind
+  services:
+    - docker:dind
   script:
-    - go build -o app .
+    - docker build -t dockerfile .
 
 
 deploy:
   stage: deploy
-  image: docker:latest
+  image: docker:dind
+  services:
+    - docker:dind
   script:
-    - docker build -t app .
-    - docker run app
+    - docker run dockerfile
 
