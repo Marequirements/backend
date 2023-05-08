@@ -10,7 +10,8 @@ type Subject struct {
 }
 
 type NewSubject struct {
-	Class   primitive.ObjectID `json:"class" bson:"class"`
-	Teacher primitive.ObjectID `json:"teacher" bson:"teacher"`
-	Title   string             `json:"title" bson:"title"`
+	ClassTitle string             `json:"classTitle" bson:"-"`
+	Class      primitive.ObjectID `json:"class" bson:"class"`
+	Title      string             `json:"title" bson:"title"`
+	Teacher    primitive.ObjectID `json:"teacher" bson:"teacher"`
 }
