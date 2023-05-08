@@ -6,9 +6,11 @@ import (
 	"context"
 	"encoding/json"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"log"
 	"net/http"
+	"strings"
 )
 
 type SubjectController struct {
@@ -22,11 +24,17 @@ func NewSubjectController(db *mongo.Client, ts *token.Storage, sc *StudentContro
 }
 
 func (sc *SubjectController) HandleNewSubject(w http.ResponseWriter, r *http.Request) {
-	token := r.Header.Get("token")
-	if token == "" {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
 		http.Error(w, "Token not provided", http.StatusBadRequest)
 		return
 	}
+	splitHeader := strings.Split(authHeader, "Bearer ")
+	if len(splitHeader) != 2 {
+		http.Error(w, "Invalid authorization header", http.StatusBadRequest)
+		return
+	}
+	token := splitHeader[1]
 	// Get the username associated with the token
 	username, err := sc.ts.GetUsernameByToken(token)
 	if err != nil {
@@ -41,12 +49,32 @@ func (sc *SubjectController) HandleNewSubject(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// Get the ObjectId of the teacher using their username
+	teacherID, err := sc.GetTeacherIDByUsername(username)
+	if err != nil {
+		http.Error(w, "Invalid teacher username", http.StatusBadRequest)
+		return
+	}
+
 	// Decode the subject details from the request body
 	var subject model.NewSubject
 	if err := json.NewDecoder(r.Body).Decode(&subject); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	// Set the Teacher field of the subject with the obtained ObjectId
+	subject.Teacher = teacherID
+
+	// Get the ObjectId of the class using its title
+	classID, err := sc.GetClassIDByTitle(subject.ClassTitle)
+	if err != nil {
+		http.Error(w, "Invalid class title", http.StatusBadRequest)
+		return
+	}
+
+	// Set the Class field of the subject with the obtained ObjectId
+	subject.Class = classID
 
 	// Add the subject to the database
 	err = sc.AddSubject(subject)
@@ -91,6 +119,38 @@ func (sc *SubjectController) GetUserRole(username string) (string, error) {
 	}
 	// Return the user's role
 	return user.Role, nil
+}
+
+func (sc *SubjectController) GetClassIDByTitle(classTitle string) (primitive.ObjectID, error) {
+	collection := sc.db.Database("BrainBoard").Collection("class")
+	filter := bson.M{"name": classTitle}
+	var class model.Class
+	err := collection.FindOne(context.Background(), filter).Decode(&class)
+	if err != nil {
+		return primitive.NilObjectID, err
+	}
+	return class.Id, nil
+}
+
+func (sc *SubjectController) GetTeacherIDByUsername(username string) (primitive.ObjectID, error) {
+	// Get a handle to the "user" collection.
+	collection := sc.db.Database("BrainBoard").Collection("user")
+
+	// Search for a user with the specified username.
+	var user model.Teacher
+	filter := bson.M{"username": username, "role": "teacher"}
+	err := collection.FindOne(context.Background(), filter).Decode(&user)
+
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Println("No matching user found:", username)
+		} else {
+			log.Println(err)
+		}
+		return primitive.NilObjectID, err
+	}
+	// Return the ObjectId of the user
+	return user.Id, nil
 }
 
 //func GetAllSubjects() ([]Subject, error) {
