@@ -7,12 +7,7 @@ build:
   image: docker:latest
 services:
    name: docker:dind
-    command: ["--storage-driver=overlay2", "-s", "overlay2"]
-    entrypoint: ["dockerd-entrypoint.sh"]
-    options: --health-cmd="nc -z localhost 2375" 
-            --health-interval=10s 
-            --health-timeout=5s  
-            --health-retries=3
+   
   script:
     - docker build -t dockerfile -f Dockerfile .
 
