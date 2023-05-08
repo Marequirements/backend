@@ -6,7 +6,9 @@ build:
   stage: build
   image: docker:latest
   services:
-    - docker:dind
+    - name: docker:dind
+      command: ["--storage-driver=overlay2", "-s", "overlay2"]
+      entrypoint: ["dockerd-entrypoint.sh"]
   script:
     - docker build -t dockerfile -f Dockerfile .
 
