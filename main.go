@@ -40,6 +40,7 @@ func main() {
 	router.Delete("/student", uc.HandleDeleteStudent)
 
 	router.Post("/subject", subjectc.HandleNewSubject)
+	router.Delete("/subject", subjectc.HandleDeleteSubject)
 
 	router.Get("/tasks", taskController.GetTasks)
 
