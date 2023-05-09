@@ -3,19 +3,13 @@ stages:
   - run
 
 build:
-  stage: build
-  image: docker:latest
-  services:
-    - name: docker:dind
-      command: ["--storage-driver=overlay2", "-s", "overlay2"]
-      entrypoint: ["dockerd-entrypoint.sh"]
-  script:
+ stage: build
+ image: docker:2.10.5   
+ script:
     - docker build -t dockerfile -f Dockerfile .
 
 run:
   stage: run
-  image: docker:latest
-  services:
-    - docker:dind
+  image: docker:2.10.5
   script:
     - docker run -p 8080:8080 dockerfile
