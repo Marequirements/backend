@@ -3,6 +3,7 @@ package controller
 import (
 	"back-end/model"
 	"back-end/token"
+	"back-end/util"
 	"context"
 	"encoding/json"
 	"go.mongodb.org/mongo-driver/bson"
@@ -26,40 +27,46 @@ func NewSubjectController(db *mongo.Client, ts *token.Storage, sc *StudentContro
 func (sc *SubjectController) HandleNewSubject(w http.ResponseWriter, r *http.Request) {
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
-		http.Error(w, "Token not provided", http.StatusBadRequest)
+		//http.Error(w, "Token not provided", http.StatusBadRequest)
+		error := "Token is invalid"
+		util.WriteErrorResponse(w, 401, error)
 		return
 	}
-	splitHeader := strings.Split(authHeader, "Bearer ")
-	if len(splitHeader) != 2 {
-		http.Error(w, "Invalid authorization header", http.StatusBadRequest)
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if token == "" {
+		error := "Token is invalid"
+		util.WriteErrorResponse(w, 401, error)
 		return
 	}
-	token := splitHeader[1]
 	// Get the username associated with the token
 	username, err := sc.ts.GetUsernameByToken(token)
 	if err != nil {
-		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		error := "Token is invalid"
+		util.WriteErrorResponse(w, 401, error)
 		return
 	}
 
 	// Check if the user has the teacher role
 	role, err := sc.GetUserRole(username)
 	if err != nil || role != "teacher" {
-		http.Error(w, "Unauthorized access", http.StatusForbidden)
+		error := "User does not have permission for this request"
+		util.WriteErrorResponse(w, 403, error)
 		return
 	}
 
 	// Get the ObjectId of the teacher using their username
 	teacherID, err := sc.GetTeacherIDByUsername(username)
 	if err != nil {
-		http.Error(w, "Invalid teacher username", http.StatusBadRequest)
+		error := "Teacher does not exist"
+		util.WriteErrorResponse(w, 404, error)
 		return
 	}
 
 	// Decode the subject details from the request body
 	var subject model.NewSubject
 	if err := json.NewDecoder(r.Body).Decode(&subject); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		error := "JSON parameters not provided"
+		util.WriteErrorResponse(w, 400, error)
 		return
 	}
 
@@ -69,7 +76,8 @@ func (sc *SubjectController) HandleNewSubject(w http.ResponseWriter, r *http.Req
 	// Get the ObjectId of the class using its title
 	classID, err := sc.GetClassIDByTitle(subject.ClassTitle)
 	if err != nil {
-		http.Error(w, "Invalid class title", http.StatusBadRequest)
+		error := "Class does not exists"
+		util.WriteErrorResponse(w, 404, error)
 		return
 	}
 
@@ -86,6 +94,67 @@ func (sc *SubjectController) HandleNewSubject(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusCreated)
 }
 
+func (sc *SubjectController) HandleDeleteSubject(w http.ResponseWriter, r *http.Request) {
+
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		//http.Error(w, "Token not provided", http.StatusBadRequest)
+		error := "Token is invalid"
+		util.WriteErrorResponse(w, 401, error)
+		return
+	}
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if token == "" {
+		error := "Token is invalid"
+		util.WriteErrorResponse(w, 401, error)
+		return
+	}
+	// Get the username associated with the token
+	username, err := sc.ts.GetUsernameByToken(token)
+	if err != nil {
+		error := "Token is invalid"
+		util.WriteErrorResponse(w, 401, error)
+		return
+	}
+
+	// Check if the user has the teacher role
+	role, err := sc.GetUserRole(username)
+	if err != nil || role != "teacher" {
+		error := "User does not have permission for this request"
+		util.WriteErrorResponse(w, 403, error)
+		return
+	}
+
+	// Decode the subject details from the request body
+	var subject model.NewSubject
+	if err := json.NewDecoder(r.Body).Decode(&subject); err != nil {
+		error := "JSON parameters not provided"
+		util.WriteErrorResponse(w, 400, error)
+		return
+	}
+
+	// Get the ObjectId of the class using its title
+	classID, err := sc.GetClassIDByTitle(subject.ClassTitle)
+	if err != nil {
+		error := "Class does not exists"
+		util.WriteErrorResponse(w, 404, error)
+		return
+	}
+
+	// Set the Class field of the subject with the obtained ObjectId
+	subject.Class = classID
+
+	// Delete the subject from the database
+	err = sc.DeleteSubject(subject)
+	if err != nil {
+		error := "Subject does not exist"
+		util.WriteErrorResponse(w, 404, error)
+		return
+	}
+
+	w.WriteHeader(204)
+}
+
 func (sc *SubjectController) AddSubject(subject model.NewSubject) error {
 	collection := sc.db.Database("BrainBoard").Collection("subject")
 	filter := bson.M{"title": subject.Title}
@@ -98,6 +167,19 @@ func (sc *SubjectController) AddSubject(subject model.NewSubject) error {
 	// Insert the new subject into the collection
 	_, err = collection.InsertOne(context.Background(), subject)
 	return err
+}
+
+func (sc *SubjectController) DeleteSubject(subject model.NewSubject) error {
+	collection := sc.db.Database("BrainBoard").Collection("subject")
+	filter := bson.M{"title": subject.Title, "class": subject.Class}
+
+	var existingSubject model.Subject
+	err := collection.FindOneAndDelete(context.Background(), filter).Decode(&existingSubject)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (sc *SubjectController) GetUserRole(username string) (string, error) {
