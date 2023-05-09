@@ -9,7 +9,7 @@ type Task struct {
 	Students    []StudentStatus    `json:"students" bson:"students"`
 	Title       string             `json:"title" bson:"title"`
 	Description string             `json:"description" bson:"description"`
-	Lesson      primitive.ObjectID `json:"lesson" bson:"lesson"`
+	Subject     primitive.ObjectID `json:"subject" bson:"subject"`
 	Status      string             `json:"status" bson:"status"`
 }
 
