@@ -16,4 +16,4 @@ run:
   services:
     - docker:dind
   script:
-    - docker run -p 8080:8080 dockerfile
+    - docker run -p 8080:8080 dockerfile /app/main
