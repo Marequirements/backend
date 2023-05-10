@@ -27,7 +27,7 @@ type UserController struct {
 	db *mongo.Client
 }
 
-type User model.User
+type User model.Student
 
 func NewStudentController(db *mongo.Client, ts *token.Storage) *StudentController {
 	return &StudentController{db: db, ts: ts}
@@ -72,11 +72,11 @@ func (sc *StudentController) CheckLogin(username, password string) (bool, string
 	collection := sc.db.Database("BrainBoard").Collection("user")
 
 	// Search for a user with the specified username.
-	var user model.User
+	var user model.Student
 	filter := bson.M{"username": username}
 	err := collection.FindOne(context.Background(), filter).Decode(&user)
 	fmt.Println("Filter:", filter)
-	fmt.Println("User found:", user)
+	fmt.Println("Student found:", user)
 	fmt.Printf("Filter: %#v\n", filter)
 
 	if err != nil {
@@ -126,7 +126,7 @@ func (sc *StudentController) HandleLogout(w http.ResponseWriter, r *http.Request
 	log.Println("Got userToken:", userToken)
 
 	// Get the username from the request body
-	var body model.User
+	var body model.Student
 	log.Println("got body")
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
@@ -201,6 +201,14 @@ func (sc *StudentController) HandleAddStudent(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	classID, err := sc.GetClassIDByTitle(student.ClassTitle)
+	if err != nil {
+		http.Error(w, "Invalid class title", http.StatusBadRequest)
+		return
+	}
+
+	student.Class = classID
+
 	// Add the student to the database
 	err = sc.AddStudent(student)
 	if err != nil {
@@ -221,6 +229,15 @@ func (sc *StudentController) AddStudent(student model.NewStudent) error {
 	if err != mongo.ErrNoDocuments {
 		return fmt.Errorf("Username already taken")
 	}
+
+	/*var existingStudent model.Student
+	err = collection.FindOne(context.Background(), filter).Decode(&existingStudent)
+	if err != mongo.ErrNoDocuments {
+		return err
+	}
+	// Insert the new subject into the collection
+	_, err = collection.InsertOne(context.Background(), existingStudent)
+	return err*/
 
 	// Hash the student's password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(student.Password), bcrypt.DefaultCost)
@@ -347,6 +364,15 @@ func (sc *StudentController) HandleEditStudent(w http.ResponseWriter, r *http.Re
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	// Get the class ID by the class title
+	classID, err := sc.GetClassIDByTitle(editRequest.NewStudent.ClassTitle)
+	if err != nil {
+		http.Error(w, "Invalid class title", http.StatusBadRequest)
+		return
+	}
+
+	// Set the class field of the NewStudent struct
+	editRequest.NewStudent.Class = classID
 
 	err = sc.EditStudent(editRequest)
 	if err != nil {
@@ -396,7 +422,7 @@ func (sc *StudentController) EditStudent(editRequest model.EditStudentRequest) e
 func (uc *UserController) GetUserRole(username string) (string, error) {
 	collection := uc.db.Database("BrainBoard").Collection("user")
 	filter := bson.M{"username": username}
-	var user model.User
+	var user model.Student
 
 	err := collection.FindOne(context.Background(), filter).Decode(&user)
 	if err != nil {
@@ -436,5 +462,14 @@ func GetAllUsers() ([]User, error) {
 
 	}
 	return users, nil
-
+}
+func (sc *StudentController) GetClassIDByTitle(classTitle string) (primitive.ObjectID, error) {
+	collection := sc.db.Database("BrainBoard").Collection("class")
+	filter := bson.M{"name": classTitle}
+	var class model.Class
+	err := collection.FindOne(context.Background(), filter).Decode(&class)
+	if err != nil {
+		return primitive.NilObjectID, err
+	}
+	return class.Id, nil
 }
