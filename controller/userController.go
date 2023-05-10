@@ -239,8 +239,8 @@ func (sc *StudentController) AddStudent(student model.NewStudent) error {
 	_, err = collection.InsertOne(context.Background(), existingStudent)
 	return err*/
 
-	// Hash the student's password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(student.Password), bcrypt.DefaultCost)
+	// Hash the default password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("brainboard"), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
@@ -298,7 +298,7 @@ func (sc *StudentController) HandleDeleteStudent(w http.ResponseWriter, r *http.
 
 	// Get the student's ID from the request body
 	var body struct {
-		StudentID string `json:"studentId"`
+		Username string `json:"username"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -307,7 +307,7 @@ func (sc *StudentController) HandleDeleteStudent(w http.ResponseWriter, r *http.
 	}
 
 	// Delete the student from the database
-	err = sc.DeleteStudent(body.StudentID)
+	err = sc.DeleteStudent(body.Username)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -315,25 +315,19 @@ func (sc *StudentController) HandleDeleteStudent(w http.ResponseWriter, r *http.
 
 	w.WriteHeader(http.StatusOK)
 }
-func (sc *StudentController) DeleteStudent(studentID string) error {
+func (sc *StudentController) DeleteStudent(username string) error {
 	// Get a handle to the "user" collection
 	collection := sc.db.Database("BrainBoard").Collection("user")
 
-	// Convert the studentID string to an ObjectID
-	objID, err := primitive.ObjectIDFromHex(studentID)
-	if err != nil {
-		return fmt.Errorf("Invalid student ID")
-	}
-
 	// Delete the student from the collection
-	filter := bson.M{"_id": objID, "role": "student"}
+	filter := bson.M{"username": username, "role": "student"}
 	res, err := collection.DeleteOne(context.Background(), filter)
 	if err != nil {
 		return err
 	}
 
 	if res.DeletedCount == 0 {
-		return fmt.Errorf("no student found with the specified ID")
+		return fmt.Errorf("no student found with the specified username")
 	}
 
 	return nil
