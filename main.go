@@ -4,6 +4,7 @@ import (
 	"back-end/controller"
 	"back-end/token"
 	"context"
+	"github.com/go-chi/cors"
 	"log"
 	"net/http"
 
@@ -16,7 +17,14 @@ import (
 
 func main() {
 	router := chi.NewRouter()
-
+	router.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"X-PINGOTHER", "Accept", "Authorization", "Content-Type", "X-CSRF-Token", "All"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300, // Maximum value not ignored by any of major browsers
+	}))
 	//conection to database
 	client, err := getDatabase()
 	if err != nil {
@@ -25,10 +33,10 @@ func main() {
 	defer client.Disconnect(context.Background())
 
 	ts := token.GetTokenStorageInstance()
+
 	//Created user controller
 	uc := controller.NewStudentController(client, token.GetTokenStorageInstance())
 	subjectc := controller.NewSubjectController(client, ts, uc)
-	//tsc := controller.NewTaskController(client, token.GetTokenStorageInstance())
 	taskController := controller.NewTaskController(client, ts, uc)
 
 	router.Post("/login", uc.HandleLogin)
