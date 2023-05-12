@@ -169,6 +169,33 @@ func (sc *SubjectController) AddSubject(subject model.NewSubject) error {
 	return err
 }
 
+//func (sc *SubjectController) AddSubject(subject model.NewSubject) error {
+//	session, err := sc.db.StartSession()
+//	if err != nil {
+//		return err
+//	}
+//	defer session.EndSession(context.Background())
+//
+//	_, err = session.WithTransaction(context.Background(), func(sessCtx mongo.SessionContext) (interface{}, error) {
+//		collection := sc.db.Database("BrainBoard").Collection("subject")
+//		filter := bson.M{"title": subject.Title}
+//
+//		var existingSubject model.Subject
+//		err := collection.FindOne(sessCtx, filter).Decode(&existingSubject)
+//		if err != mongo.ErrNoDocuments {
+//			return nil, err
+//		}
+//
+//		_, err = collection.InsertOne(sessCtx, subject)
+//		if err != nil {
+//			return nil, err
+//		}
+//
+//		return nil, nil
+//	})
+//	return err
+//}
+
 func (sc *SubjectController) DeleteSubject(subject model.NewSubject) error {
 	collection := sc.db.Database("BrainBoard").Collection("subject")
 	filter := bson.M{"title": subject.Title, "class": subject.Class}
