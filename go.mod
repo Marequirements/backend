@@ -4,12 +4,12 @@ go 1.20
 
 require (
 	github.com/go-chi/chi/v5 v5.0.8
+	github.com/go-chi/cors v1.2.1
 	go.mongodb.org/mongo-driver v1.11.6
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
 )
 
 require (
-	github.com/go-chi/cors v1.2.1 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/kr/pretty v0.2.1 // indirect

@@ -13,6 +13,6 @@ type NewStudent struct {
 }
 
 type EditStudentRequest struct {
-	StudentID  string     `json:"studentId"`
-	NewStudent NewStudent `json:"newStudent"`
+	OldStudentUsername string     `json:"oldStudentUsername"`
+	NewStudent         NewStudent `json:"newStudent"`
 }

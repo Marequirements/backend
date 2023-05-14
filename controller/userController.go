@@ -374,16 +374,15 @@ func (sc *StudentController) HandleEditStudent(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	util.WriteSuccessResponse(w, http.StatusCreated, nil)
+	util.WriteSuccessResponse(w, http.StatusNoContent, nil)
+
 }
 
 func (sc *StudentController) EditStudent(editRequest model.EditStudentRequest) error {
 	collection := sc.db.Database("BrainBoard").Collection("user")
 
-	objID, err := primitive.ObjectIDFromHex(editRequest.StudentID)
-	if err != nil {
-		return fmt.Errorf("Invalid student ID")
-	}
+	fmt.Printf("Old username: %s\n", editRequest.OldStudentUsername)
+	fmt.Printf("New username: %s\n", editRequest.NewStudent.Username)
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(editRequest.NewStudent.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -400,14 +399,18 @@ func (sc *StudentController) EditStudent(editRequest model.EditStudentRequest) e
 		},
 	}
 
-	filter := bson.M{"_id": objID, "role": "student"}
+	filter := bson.M{"username": editRequest.OldStudentUsername, "role": "student"} // Use OldStudentUsername here
+	fmt.Printf("Filter: %+v\n", filter)
+
 	res, err := collection.UpdateOne(context.Background(), filter, update)
 	if err != nil {
 		return err
 	}
 
+	fmt.Printf("Matched count: %d\n", res.MatchedCount)
+
 	if res.MatchedCount == 0 {
-		return fmt.Errorf("No student found with the specified ID")
+		return fmt.Errorf("No student found with the specified username")
 	}
 
 	return nil
