@@ -4,11 +4,12 @@ import (
 	"back-end/controller"
 	"back-end/token"
 	"context"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"log"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
+	_ "github.com/go-chi/chi/v5"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
