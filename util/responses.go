@@ -2,10 +2,12 @@ package util
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 )
 
 func WriteErrorResponse(w http.ResponseWriter, statusCode int, errorMessage string) {
+	log.Println("Function WriteErrorResponse called")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	errorResponse := struct {

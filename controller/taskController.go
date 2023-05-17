@@ -5,9 +5,9 @@ import (
 	"back-end/token"
 	"context"
 	"encoding/json"
-	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -101,70 +101,113 @@ func NewTaskController(db *mongo.Client, ts *token.Storage, uc *StudentControlle
 	}
 */
 func (tc *TaskController) GetTasksWithStatus3() ([]model.Task, error) {
+	log.Println("Function GetTaskWithStatus3 called")
 	// Get a handle to the "tasks" collection.
 	collection := tc.db.Database("BrainBoard").Collection("task")
 
 	// Define the filter for tasks with students having status "3".
 	filter := bson.M{"students": bson.M{"$elemMatch": bson.M{"status": "3"}}}
 
+	log.Println("GetTaskWithStatus3: Searching for tasks with status 3 in task collection")
+
 	// Execute the query.
 	cursor, err := collection.Find(context.Background(), filter)
 	if err != nil {
+		log.Println("GetTaskWithStatus3: Error with finding tasks with status 3")
 		return nil, err
 	}
 	defer cursor.Close(context.Background())
 
+	log.Println("GetTaskWithStatus3: Saving found tasks")
+
 	// Decode the results.
 	var tasks []model.Task
 	if err := cursor.All(context.Background(), &tasks); err != nil {
+		log.Println("GetTaskWithStatus3: Failed saving tasks")
 		return nil, err
 	}
-	fmt.Println("Tasks with status 3:", tasks) // Debug print
+	log.Println("GetTaskWithStatus3:Found tasks with status 3", tasks)
+
 	return tasks, nil
 }
+
 func (tc *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
+	log.Println("Function GetTasks called")
+
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
+		log.Println("GetTasks: Failed to get authHeader= ", authHeader)
+
 		http.Error(w, "Authorization header not provided", http.StatusBadRequest)
 		return
 	}
-	token := strings.TrimPrefix(authHeader, "Bearer ")
+	log.Println("GetTasks: Got authHeader= ", authHeader)
 
-	// Get the username associated with the token
-	username, err := tc.uc.ts.GetUsernameByToken(token)
+	log.Println("GetTasks: Getting token")
+
+	authToken := strings.TrimPrefix(authHeader, "Bearer ")
+
+	log.Println("GetTasks: Got token= ", authToken)
+
+	log.Println("GetTasks: Getting username from token ", authToken)
+	// Get the username associated with the authToken
+	username, err := tc.uc.ts.GetUsernameByToken(authToken)
 	if err != nil {
-		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		log.Println("GetTasks: Failed could not get the username from token ", authToken)
+		http.Error(w, "Invalid authToken", http.StatusUnauthorized)
 		return
 	}
+	log.Println("GetTasks: Got username= ", username, " from token= ", authToken)
+
+	log.Println("GetTasks: Checking the role of user= ", username)
 
 	// Check if the user has the teacher role
 	role, err := tc.uc.GetUserRole(username)
-	if err != nil || role != "teacher" {
+	if err != nil {
+		log.Println("GetTasks: Failed to get user role for user= ", username)
+		http.Error(w, "Unauthorized access", http.StatusInternalServerError)
+		return
+	}
+	if role != "teacher" {
+		log.Println("GetTasks: user= ", username, " does not have teacher role, role= ", role)
 		http.Error(w, "Unauthorized access", http.StatusForbidden)
 		return
 	}
+	log.Println("GetTasks: user= ", username, " does have teacher role, role= ", role)
 
+	log.Println("GetTasks: Getting tasks with status 3")
 	// Get tasks with status 3
 	tasks, err := tc.getFilteredTasks()
 	if err != nil {
+		log.Println("GetTasks: Failed to get tasks")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	log.Println("GetTasks: got tasks= ", tasks)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(tasks); err != nil {
+		log.Println("GetTasks: Failed to write tasks to body, tasks= ", tasks)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	log.Println("GetTasks: Tasks sent successfully")
 }
 
 func (tc *TaskController) getFilteredTasks() ([]model.TaskWithStudent, error) {
+	log.Println("Function getFilteredTasks called")
+
+	log.Println("getFilteredTasks: Filtering tasks")
 	// Get tasks with status 3
 	tasks, err := tc.GetTasksWithStatus3()
 	if err != nil {
+		log.Println("getFilteredTasks: Failed to filter tasks")
 		return nil, err
 	}
 
+	log.Println("getFilteredTasks: Got filtered tasks= ", tasks)
+
+	log.Println("getFilteredTasks: Extracting information from tasks")
 	// Extract required information
 	filteredTasks := make([]model.TaskWithStudent, 0)
 	for _, task := range tasks {
@@ -178,7 +221,8 @@ func (tc *TaskController) getFilteredTasks() ([]model.TaskWithStudent, error) {
 			}
 		}
 	}
-	fmt.Println("Filtered tasks:", filteredTasks) // Debug print
+
+	log.Println("getFilteredTasks: Got filtered tasks= ", filteredTasks)
 
 	return filteredTasks, nil
 }
