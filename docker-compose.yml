@@ -1,0 +1,32 @@
+version: "1"
+services:
+  mongodb:
+    image: mongo:4.4
+    restart: always
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=mareklescinsky
+      - MONGO_INITDB_ROOT_PASSWORD=EUFZTs6jcdkqqEUk
+    volumes:
+      - mongodbdata:/data/db
+    networks:
+      - backend
+
+  app:
+    image: go
+    restart: always
+    ports:
+      - 3000:3000
+    volumes:
+      - appdata:/app/data
+    networks:
+      - backend
+
+volumes:
+  mongodbdata:
+    name: mongodbdata
+
+  appdata:
+    name: appdata
+
+networks:
+  backend:
