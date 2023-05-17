@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 
-	_ "github.com/go-chi/chi/v5"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -54,7 +53,7 @@ func main() {
 	router.Get("/tasks", taskController.GetTasks)
 
 	log.Println("Starting server...")
-	err = http.ListenAndServe(":3000", router)
+	err = http.ListenAndServe(":8080", router)
 	if err != nil {
 		log.Fatal("Error starting server: ", err)
 	}
