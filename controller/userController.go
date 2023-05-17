@@ -461,12 +461,19 @@ func GetAllUsers() ([]User, error) {
 	return users, nil
 }
 func (sc *StudentController) GetClassIDByTitle(classTitle string) (primitive.ObjectID, error) {
+	log.Println("Function GetClassIDByTitle was called")
+
 	collection := sc.db.Database("BrainBoard").Collection("class")
 	filter := bson.M{"name": classTitle}
 	var class model.Class
+
+	log.Println("GetClassIDByTitle: searching ID for class= ", classTitle)
+
 	err := collection.FindOne(context.Background(), filter).Decode(&class)
 	if err != nil {
+		log.Println("GetClassIDByTitle: Fail class= ", classTitle, " not found")
 		return primitive.NilObjectID, err
 	}
+	log.Println("GetClassIDByTitle: Found ID= ", class.Id, " for class= ", classTitle)
 	return class.Id, nil
 }
