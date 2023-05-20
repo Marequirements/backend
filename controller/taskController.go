@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"log"
 	"net/http"
@@ -100,7 +101,7 @@ func NewTaskController(db *mongo.Client, ts *token.Storage, uc *StudentControlle
 		return nil
 	}
 */
-func (tc *TaskController) GetTasksWithStatus3() ([]model.Task, error) {
+func (tc *TaskController) GetTasksWithStatus3() ([]model.TaskWithStudent, error) {
 	log.Println("Function GetTaskWithStatus3 called")
 	// Get a handle to the "tasks" collection.
 	collection := tc.db.Database("BrainBoard").Collection("task")
@@ -126,9 +127,57 @@ func (tc *TaskController) GetTasksWithStatus3() ([]model.Task, error) {
 		log.Println("GetTaskWithStatus3: Failed saving tasks")
 		return nil, err
 	}
+
+	// Create a map to store the subject titles
+	subjectTitleMap := make(map[primitive.ObjectID]string)
+
+	// Change collection to the "subject" collection.
+	collection = tc.db.Database("BrainBoard").Collection("subject")
+
+	// Retrieve subjects for each task
+	for _, task := range tasks {
+		var subject model.Subject
+		err = collection.FindOne(context.Background(), bson.M{"_id": task.Subject}).Decode(&subject)
+		if err != nil {
+			log.Println("Failed to fetch subject for task")
+			return nil, err
+		}
+		subjectTitleMap[task.Subject] = subject.Title
+	}
+
 	log.Println("GetTaskWithStatus3:Found tasks with status 3", tasks)
 
-	return tasks, nil
+	// Now we can construct our response
+	var response []model.TaskWithStudent
+
+	// Get a handle to the "students" collection.
+	studentCollection := tc.db.Database("BrainBoard").Collection("user")
+
+	for _, task := range tasks {
+		for _, studentStatus := range task.Students {
+			if studentStatus.Status == "3" {
+				// Fetch student details
+				var student model.Student
+				err := studentCollection.FindOne(context.Background(), bson.M{"_id": studentStatus.StudentID}).Decode(&student)
+				if err != nil {
+					log.Println("Failed to fetch student for task")
+					return nil, err
+				}
+
+				response = append(response, model.TaskWithStudent{
+					StudentID:   studentStatus.StudentID,
+					TaskName:    task.Title,
+					Subject:     subjectTitleMap[task.Subject],
+					Description: task.Description,
+					Name:        student.Name,
+					Surname:     student.Surname,
+					Deadline:    task.Deadline,
+				})
+			}
+		}
+	}
+
+	return response, nil
 }
 
 func (tc *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
@@ -177,7 +226,7 @@ func (tc *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("GetTasks: Getting tasks with status 3")
 	// Get tasks with status 3
-	tasks, err := tc.getFilteredTasks()
+	tasks, err := tc.GetTasksWithStatus3()
 	if err != nil {
 		log.Println("GetTasks: Failed to get tasks")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -192,37 +241,4 @@ func (tc *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Println("GetTasks: Tasks sent successfully")
-}
-
-func (tc *TaskController) getFilteredTasks() ([]model.TaskWithStudent, error) {
-	log.Println("Function getFilteredTasks called")
-
-	log.Println("getFilteredTasks: Filtering tasks")
-	// Get tasks with status 3
-	tasks, err := tc.GetTasksWithStatus3()
-	if err != nil {
-		log.Println("getFilteredTasks: Failed to filter tasks")
-		return nil, err
-	}
-
-	log.Println("getFilteredTasks: Got filtered tasks= ", tasks)
-
-	log.Println("getFilteredTasks: Extracting information from tasks")
-	// Extract required information
-	filteredTasks := make([]model.TaskWithStudent, 0)
-	for _, task := range tasks {
-		for _, student := range task.Students {
-			if student.Status == "3" {
-				filteredTask := model.TaskWithStudent{
-					StudentID: student.StudentID,
-					TaskName:  task.Title,
-				}
-				filteredTasks = append(filteredTasks, filteredTask)
-			}
-		}
-	}
-
-	log.Println("getFilteredTasks: Got filtered tasks= ", filteredTasks)
-
-	return filteredTasks, nil
 }
