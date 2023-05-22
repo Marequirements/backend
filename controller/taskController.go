@@ -5,6 +5,7 @@ import (
 	"back-end/token"
 	"context"
 	"encoding/json"
+	"github.com/go-chi/chi/v5"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -23,84 +24,149 @@ func NewTaskController(db *mongo.Client, ts *token.Storage, uc *StudentControlle
 	return &TaskController{db: db, ts: ts, uc: uc}
 }
 
-/*
-	func GetAllTasks() ([]TaskController, error) {
-		client, err := mongo.Connect(context.Background(), options.Client().ApplyURI("mongodb+srv://mareklescinsky:EUFZTs6jcdkqqEUk@brainboard.lrpc8h3.mongodb.net/test"))
-		if err != nil {
-			return nil, err
-		}
-		defer client.Disconnect(context.Background())
+func (tc *TaskController) HandleTeacherTasks(w http.ResponseWriter, r *http.Request) {
+	log.Println("Function HandleTeacherTasks called")
 
-		collection := client.Database("BrainBoard").Collection("task")
-		cursor, err := collection.Find(context.Background(), bson.D{})
-		if err != nil {
-			return nil, err
-		}
-		defer cursor.Close(context.Background())
+	log.Println("HandleTeacherTasks: Getting auth header")
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		log.Println("HandleTeacherTasks: Failed to get auth headr= ", authHeader)
+		respondWithError(w, http.StatusBadRequest, "Authorization header not provided")
+		return
+	}
+	log.Println("HandleTeacherTasks: Got authHeader= ", authHeader)
+	log.Println("HandleTeacherTasks: Getting token")
+	userToken := strings.TrimPrefix(authHeader, "Bearer ")
+	log.Println("HandleTeacherTasks: Token= ", userToken)
 
-		var tasks []TaskController
-		for cursor.Next(context.Background()) {
-			var task TaskController
-			err := cursor.Decode(&task)
-			if err != nil {
-				return nil, err
-			}
-			tasks = append(tasks, task)
-		}
-		if err := cursor.Err(); err != nil {
-			return nil, err
-		}
-		return tasks, nil
+	log.Println("HandleTeacherTasks: Getting username from token")
+	username, err := tc.ts.GetUsernameByToken(userToken)
+	if err != nil {
+		log.Println("HandleTeacherTasks: Failed to get username from token= ", userToken)
+		log.Println("HandleTeacherTasks: Returning status code 401")
+		respondWithError(w, http.StatusUnauthorized, "Token is invalid")
+		return
 	}
 
-	func AddTask(task TaskController) error {
-		client, err := mongo.Connect(context.Background(), options.Client().ApplyURI("mongodb+srv://mareklescinsky:EUFZTs6jcdkqqEUk@brainboard"+
-			".lrpc8h3.mongodb.net/test"))
-		if err != nil {
-			return err
-		}
-		defer client.Disconnect(context.Background())
-
-		collection := client.Database("BrainBoard").Collection("task")
-		_, err = collection.InsertOne(context.Background(), task)
-		if err != nil {
-			return err
-		}
-		return nil
+	log.Println("HandleTeacherTasks: GEtting role from username= ", username)
+	role, err := tc.GetUserRole(username)
+	if err != nil {
+		log.Println("HandleTeacherTasks: Failed to get role of user= ", username)
+		log.Println("HandleTeacherTasks: Returning status code 500")
+		respondWithError(w, http.StatusInternalServerError, "failed to get role of user")
+		return
+	}
+	if role != "teacher" {
+		log.Println("HandleTeacherTasks: User= ", username, " does not have teacher role, role= ", role)
+		log.Println("HandleTeacherTasks: Returning status code 403")
+		respondWithError(w, http.StatusForbidden, "User does not have permission for this request")
+		return
 	}
 
-	func DeleteTask(id string) error {
-		client, err := mongo.Connect(context.Background(), options.Client().ApplyURI("mongodb+srv://mareklescinsky:EUFZTs6jcdkqqEUk@brainboard"+
-			".lrpc8h3.mongodb.net/test"))
-		if err != nil {
-			return err
-		}
-		defer client.Disconnect(context.Background())
+	log.Println("HandleTeacherTasks: Getting path variable")
+	classTitle := chi.URLParam(r, "classTitle")
 
-		collection := client.Database("BrainBoard").Collection("task")
-		_, err = collection.DeleteOne(context.Background(), bson.D{{"_id", id}})
-		if err != nil {
-			return err
-		}
-		return nil
+	log.Println("HandleTeacherTasks: Path cariable classTitle= ", classTitle)
+	log.Println("HandleTeacherTasks: Getting classid for classTitle")
+	classId, err := tc.GetClassIdByClassTitle(classTitle)
+	if err != nil {
+		log.Println("HandleTeacherTasks: Failed to get classid for class= ", classTitle)
+		log.Println("HandleTeacherTasks: Returned status code 500")
+		respondWithError(w, http.StatusInternalServerError, "Failed to get classid from class")
+		return
 	}
 
-	func EditTask(task TaskController) error {
-		client, err := mongo.Connect(context.Background(), options.Client().ApplyURI("mongodb+srv://mareklescinsky:EUFZTs6jcdkqqEUk@brainboard"+
-			".lrpc8h3.mongodb.net/test"))
-		if err != nil {
-			return err
-		}
-		defer client.Disconnect(context.Background())
+	log.Println("HandleTeacherTasks: classtitle= ", classTitle, " classId= ", classId)
 
-		collection := client.Database("BrainBoard").Collection("task")
-		_, err = collection.UpdateOne(context.Background(), bson.D{{"_id", task.Id}}, bson.D{{"$set", bson.D{{"deadline", task.Deadline}, {"priority", task.Priority}, {"students", task.Students}, {"title", task.Title}, {"description", task.Description}, {"lesson", task.Lesson}}}})
-		if err != nil {
-			return err
-		}
-		return nil
+	log.Println("HandleTeacherTasks: Getting userid from user= ", username)
+	userId, err := tc.GetIdByUsername(username)
+	if err != nil {
+		log.Println("HandleTeacherTasks: Failed to get userID from user= ", username)
+		log.Println("HandleTeacherTasks: Returning status code 500")
+		respondWithError(w, http.StatusInternalServerError, "Failed to get userid from user")
+		return
 	}
-*/
+	log.Println("HandleTeacherTasks: username= ", username, " userID= ", userId)
+
+	log.Println("HandleTeacherTasks: Getting getting tasks for class= ", classTitle, " user= ", username)
+	tasks, err := tc.GetClassTask(*classId, *userId)
+	if err != nil {
+		log.Println("HandleTeacherTasks: Failed to get tasks from classid= ", classId, " userID= ", userId)
+		respondWithError(w, http.StatusInternalServerError, "Failed to get tasks from classID and userID")
+		return
+	}
+	log.Println("HandleTeacherTasks: Returning tasks= ,", tasks)
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(tasks); err != nil {
+		log.Println("GetTasks: Failed to write tasks to body, tasks= ", tasks)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	log.Println("HandleTeacherTasks: Tasks sent succesfully")
+}
+
+func (tc *TaskController) GetClassTask(class primitive.ObjectID, teacher primitive.ObjectID) ([]model.ClassTasks, error) {
+	log.Println("Function GetClassTask called")
+
+	//get connection
+	collection := tc.db.Database("BrainBoard").Collection("task")
+	// Lookup the subject based on the teacher and class IDs
+	lookupStage := bson.D{
+		{"$lookup", bson.D{
+			{"from", "subject"},
+			{"localField", "subject"},
+			{"foreignField", "_id"},
+			{"as", "subject"},
+		}},
+	}
+
+	unwindStage := bson.D{
+		{"$unwind", "$subject"},
+	}
+
+	// Match the tasks that have the specified teacher and class
+	matchStage := bson.D{
+		{"$match", bson.D{
+			{"subject.teacher", teacher},
+			{"subject.class", class},
+		}},
+	}
+
+	// Pipeline for aggregation
+	pipeline := mongo.Pipeline{lookupStage, unwindStage, matchStage}
+
+	// Perform the aggregation
+	cursor, err := collection.Aggregate(context.Background(), pipeline)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var tasks []model.ClassTasks
+
+	// Iterate over the cursor and print the filtered tasks
+	defer cursor.Close(context.Background())
+	//for cursor.Next(context.Background()) {
+	//	var task bson.M
+	//	if err := cursor.Decode(&task); err != nil {
+	//		log.Fatal(err)
+	//	}
+	//	fmt.Println(task)
+	//}
+	if err := cursor.All(context.Background(), &tasks); err != nil {
+		log.Println("GetClassTasks: Failed saving tasks Error: ", err)
+		return nil, err
+	}
+
+	if err := cursor.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("GetClassTasks: Returned tasks= ", tasks)
+	return tasks, nil
+
+}
+
 func (tc *TaskController) GetTasksWithStatus3() ([]model.TaskWithStudent, error) {
 	log.Println("Function GetTaskWithStatus3 called")
 	// Get a handle to the "tasks" collection.
@@ -241,4 +307,74 @@ func (tc *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Println("GetTasks: Tasks sent successfully")
+}
+
+func (tc *TaskController) GetUserRole(username string) (string, error) {
+	log.Println("Function GetUserRole called")
+	// Get a handle to the "user" collection.
+	collection := tc.db.Database("BrainBoard").Collection("user")
+
+	log.Println("GetUserRole: Getting role of user= ", username, " from database")
+	// Search for a user with the specified username.
+	var user model.NewStudent
+	filter := bson.M{"username": username}
+	err := collection.FindOne(context.Background(), filter).Decode(&user)
+
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Println("GetUserRole: No matching user found:", username)
+		} else {
+			log.Println("GetUserRole:", err)
+		}
+		return "", err
+	}
+
+	log.Println("GetUserRole: The role of user ", username, " is ", user.Role)
+
+	// Return the user's role
+	return user.Role, nil
+}
+
+func (tc *TaskController) GetIdByUsername(username string) (*primitive.ObjectID, error) {
+	log.Println("Function GetIdByUsername called")
+	collection := tc.db.Database("BrainBoard").Collection("user")
+
+	filter := bson.M{"username": username}
+	var id struct {
+		ID primitive.ObjectID `bson:"_id"`
+	}
+
+	log.Println("GetIdByUsername: Searching for user= ", username, " in database")
+	err := collection.FindOne(context.Background(), filter).Decode(&id)
+	if err != nil {
+		log.Println("GetIdByUsername: Failed to find user= ", username)
+		return nil, err
+	}
+
+	log.Println("GetIdByUsername: Found user= ", username, " in database and id= ", id)
+	log.Println("GetIdByUsername: Returned values id= ", id, " error= nil")
+	return &id.ID, nil
+}
+
+func (tc *TaskController) GetClassIdByClassTitle(classTitle string) (*primitive.ObjectID, error) {
+	log.Println("Function GetClassIdByClassTitle called")
+	collection := tc.db.Database("BrainBoard").Collection("class")
+
+	filter := bson.M{"name": classTitle}
+	//var id *primitive.ObjectID
+
+	var id struct {
+		ID primitive.ObjectID `bson:"_id"`
+	}
+
+	log.Println("GetClassIdByClassTitle: Searching for class= ", classTitle, " in database")
+	err := collection.FindOne(context.Background(), filter).Decode(&id)
+	if err != nil {
+		log.Println("GetClassIdByClassTitle: Failed to find class= ", classTitle, " Error: ", err)
+		return nil, err
+	}
+
+	log.Println("GetClassIdByClassTitle: Found class= ", classTitle, " in database and id= ", id)
+	log.Println("GetClassIdByClassTitle: Returned values id= ", id, " error= nil")
+	return &id.ID, nil
 }
