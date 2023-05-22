@@ -51,6 +51,7 @@ func main() {
 	router.Delete("/subject", subjectc.HandleDeleteSubject)
 
 	router.Get("/tasks", taskController.GetTasks)
+	router.Get("/task/{classTitle}", taskController.HandleTeacherTasks)
 
 	log.Println("Starting server...")
 	err = http.ListenAndServe(":8080", router)
