@@ -221,6 +221,11 @@ func (sc *StudentController) HandleAddStudent(w http.ResponseWriter, r *http.Req
 		respondWithError(w, http.StatusBadRequest, "JSON parameters not provided")
 		return
 	}
+	// Validate the required fields here. Assuming username and classTitle as required fields.
+	if student.Username == "" || student.ClassTitle == "" {
+		respondWithError(w, http.StatusBadRequest, "JSON parameters not provided")
+		return
+	}
 
 	classID, err := sc.GetClassIDByTitle(student.ClassTitle)
 	if err != nil {
