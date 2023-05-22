@@ -28,3 +28,19 @@ type TaskWithStudent struct {
 	Surname     string             `json:"surname"`
 	Deadline    primitive.DateTime `json:"deadline"`
 }
+
+//	type ClassTasks struct {
+//		Deadline    primitive.DateTime `json:"deadline" bson:"deadline"`
+//		Title       string             `json:"title" bson:"title""`
+//		Subject     primitive.ObjectID `json:"subject" bson:"subject"`
+//		Description string             `json:"description" bson:"description"`
+//	}
+type ClassTasks struct {
+	ID       primitive.ObjectID `bson:"_id"`
+	Title    string             `bson:"title"`
+	Deadline primitive.DateTime `bson:"deadline"`
+	Subject  struct {
+		Teacher primitive.ObjectID `bson:"teacher"`
+		Class   primitive.ObjectID `bson:"class"`
+	} `bson:"subject"`
+}
