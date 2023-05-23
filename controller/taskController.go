@@ -66,13 +66,13 @@ func (tc *TaskController) HandleTeacherTasks(w http.ResponseWriter, r *http.Requ
 	log.Println("HandleTeacherTasks: Getting path variable")
 	classTitle := chi.URLParam(r, "classTitle")
 
-	log.Println("HandleTeacherTasks: Path cariable classTitle= ", classTitle)
-	log.Println("HandleTeacherTasks: Getting classid for classTitle")
+	log.Println("HandleTeacherTasks: Path variable classTitle= ", classTitle)
+	log.Println("HandleTeacherTasks: Getting classid from classTitle")
 	classId, err := tc.GetClassIdByClassTitle(classTitle)
 	if err != nil {
 		log.Println("HandleTeacherTasks: Failed to get classid for class= ", classTitle)
-		log.Println("HandleTeacherTasks: Returned status code 500")
-		respondWithError(w, http.StatusInternalServerError, "Failed to get classid from class")
+		log.Println("HandleTeacherTasks: Returned status code 400")
+		respondWithError(w, http.StatusBadRequest, "Failed to get classid from path variable classTitle")
 		return
 	}
 
@@ -92,6 +92,7 @@ func (tc *TaskController) HandleTeacherTasks(w http.ResponseWriter, r *http.Requ
 	tasks, err := tc.GetClassTask(*classId, *userId)
 	if err != nil {
 		log.Println("HandleTeacherTasks: Failed to get tasks from classid= ", classId, " userID= ", userId)
+		log.Println("HandleTeacherTasks: Returning status code 500")
 		respondWithError(w, http.StatusInternalServerError, "Failed to get tasks from classID and userID")
 		return
 	}
@@ -104,6 +105,8 @@ func (tc *TaskController) HandleTeacherTasks(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	log.Println("HandleTeacherTasks: Tasks sent succesfully")
+	log.Println("HandleTeacherTasks: Returning status code 200")
+
 }
 
 func (tc *TaskController) GetClassTask(class primitive.ObjectID, teacher primitive.ObjectID) ([]model.ClassTasks, error) {
@@ -117,19 +120,19 @@ func (tc *TaskController) GetClassTask(class primitive.ObjectID, teacher primiti
 			{"from", "subject"},
 			{"localField", "subject"},
 			{"foreignField", "_id"},
-			{"as", "subject"},
+			{"as", "subjectDetails"},
 		}},
 	}
 
 	unwindStage := bson.D{
-		{"$unwind", "$subject"},
+		{"$unwind", "$subjectDetails"},
 	}
 
 	// Match the tasks that have the specified teacher and class
 	matchStage := bson.D{
 		{"$match", bson.D{
-			{"subject.teacher", teacher},
-			{"subject.class", class},
+			{"class", class},
+			{"subjectDetails.teacher", teacher},
 		}},
 	}
 
@@ -142,20 +145,25 @@ func (tc *TaskController) GetClassTask(class primitive.ObjectID, teacher primiti
 		log.Fatal(err)
 	}
 
-	var tasks []model.ClassTasks
+	var aggregationResults []model.TaskAggregationResult
 
 	// Iterate over the cursor and print the filtered tasks
 	defer cursor.Close(context.Background())
-	//for cursor.Next(context.Background()) {
-	//	var task bson.M
-	//	if err := cursor.Decode(&task); err != nil {
-	//		log.Fatal(err)
-	//	}
-	//	fmt.Println(task)
-	//}
-	if err := cursor.All(context.Background(), &tasks); err != nil {
+
+	if err := cursor.All(context.Background(), &aggregationResults); err != nil {
 		log.Println("GetClassTasks: Failed saving tasks Error: ", err)
 		return nil, err
+	}
+
+	var tasks []model.ClassTasks
+	for _, result := range aggregationResults {
+		tasks = append(tasks, model.ClassTasks{
+			ID:          result.ID,
+			Title:       result.Title,
+			Description: result.Description,
+			Deadline:    result.Deadline,
+			Subject:     result.Subject.Title,
+		})
 	}
 
 	if err := cursor.Err(); err != nil {
