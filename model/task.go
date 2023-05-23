@@ -29,18 +29,20 @@ type TaskWithStudent struct {
 	Deadline    primitive.DateTime `json:"deadline"`
 }
 
-//	type ClassTasks struct {
-//		Deadline    primitive.DateTime `json:"deadline" bson:"deadline"`
-//		Title       string             `json:"title" bson:"title""`
-//		Subject     primitive.ObjectID `json:"subject" bson:"subject"`
-//		Description string             `json:"description" bson:"description"`
-//	}
+type TaskAggregationResult struct {
+	ID          primitive.ObjectID `bson:"_id"`
+	Title       string             `bson:"title"`
+	Description string             `bson:"description"`
+	Deadline    primitive.DateTime `bson:"deadline"`
+	Subject     struct {
+		Title string `bson:"title"`
+	} `bson:"subjectDetails"`
+}
+
 type ClassTasks struct {
-	ID       primitive.ObjectID `bson:"_id"`
-	Title    string             `bson:"title"`
-	Deadline primitive.DateTime `bson:"deadline"`
-	Subject  struct {
-		Teacher primitive.ObjectID `bson:"teacher"`
-		Class   primitive.ObjectID `bson:"class"`
-	} `bson:"subject"`
+	ID          primitive.ObjectID `bson:"_id"`
+	Title       string             `bson:"title"`
+	Description string             `bson:"description"`
+	Deadline    primitive.DateTime `bson:"deadline"`
+	Subject     string             `bson:"subject"`
 }
