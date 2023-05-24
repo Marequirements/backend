@@ -16,3 +16,8 @@ type NewSubject struct {
 	Teacher     primitive.ObjectID `json:"teacher" bson:"teacher"`
 	TeacherName string             `json:"teacherName" bson:"-"`
 }
+
+type FormSubjects struct {
+	Title string `json:"title" bson:"title"`
+	Class string `json:"class" bson:"class"`
+}

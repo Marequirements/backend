@@ -394,31 +394,32 @@ func (sc *SubjectController) GetTeacherIDByUsername(username string) (primitive.
 	return user.Id, nil
 }
 
-//func GetAllSubjects() ([]Subject, error) {
-//	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI("mongodb+srv://mareklescinsky:EUFZTs6jcdkqqEUk@brainboard.lrpc8h3.mongodb.net/test"))
-//	if err != nil {
-//		return nil, err
-//	}
-//	defer client.Disconnect(context.Background())
+//func (sc *SubjectController) GetAllSubjects() []model.FormSubjects {
+//	log.Println("Function GetAllSubject called")
+//	collection := sc.db.Database("BrainBoard").Collection("subject")
 //
-//	collection := client.Database("BrainBoard").Collection("subject")
-//	cursor, err := collection.Find(context.Background(), bson.D{})
+//	// Find all subjects
+//	cursor, err := collection.Find(context.Background(), bson.M{})
 //	if err != nil {
-//		return nil, err
+//		log.Fatal(err)
 //	}
 //	defer cursor.Close(context.Background())
 //
-//	var subjects []Subject
+//	// Iterate through the cursor and build the result array
+//	var result []model.FormSubjects
 //	for cursor.Next(context.Background()) {
-//		var subject Subject
-//		err := cursor.Decode(&subject)
-//		if err != nil {
-//			return nil, err
+//		var subject model.FormSubjects
+//		if err := cursor.Decode(&subject); err != nil {
+//			log.Fatal(err)
 //		}
-//		subjects = append(subjects, subject)
+//
+//		// Build the desired JSON object
+//		formSubject := model.FormSubjects{
+//			Title: subject.Title,
+//			Class: subject.Class.Name,
+//		}
+//		result = append(result, formSubject)
 //	}
-//	if err := cursor.Err(); err != nil {
-//		return nil, err
-//	}
-//	return subjects, nil
+//
+//	return result
 //}
