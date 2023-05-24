@@ -70,12 +70,20 @@ func (sc *StudentController) HandleLogin(w http.ResponseWriter, r *http.Request)
 	log.Println("HandleLogin: Returning token in authHeader")
 	// Write the userToken to the response header using the Bearer scheme.
 	w.Header().Set("Authorization", fmt.Sprintf("Bearer %s", userToken))
-	log.Println("HandleLogin: Returning role")
+	log.Println("HandleLogin: Returning role name and surname")
 	w.Header().Set("Access-Control-Expose-Headers", "Authorization")
 
+	name, surname, err := sc.GetNameSurname(loginRequest.Username)
+	if err != nil {
+		log.Println("HandleLogin: Failed to get name,surname from username= ", loginRequest.Username)
+		log.Println("HandleLogin: returned status code 500")
+		util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to get name and surname from username")
+	}
 	response := struct {
-		Role string `json:"role"`
-	}{Role: role}
+		Role    string `json:"role"`
+		Name    string `json:"name"`
+		Surname string `json:"surname"`
+	}{Role: role, Name: name, Surname: surname}
 
 	log.Println("HandleLogin: Returned token= ", userToken, " role= ", response)
 
@@ -620,4 +628,30 @@ func (sc *StudentController) GetStudentsByClass(w http.ResponseWriter, r *http.R
 
 	log.Println("GetStudentsByClass: Returning list of students in class= ", classTitle)
 	util.WriteSuccessResponse(w, http.StatusOK, students)
+}
+
+func (sc *StudentController) GetNameSurname(username string) (string, string, error) {
+	log.Println("Function GetNameSurname called")
+
+	collection := sc.db.Database("BrainBoard").Collection("user")
+
+	filter := bson.M{"username": username}
+
+	log.Println("GetNameSurname: Searching for name,surname for user= ", username, " in database")
+
+	var result struct {
+		Name    string `bson:"name"`
+		Surname string `bson:"surname"`
+	}
+
+	err := collection.FindOne(context.Background(), filter).Decode(&result)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return "", "", err
+		}
+		return "", "", err
+	}
+
+	return result.Name, result.Surname, nil
+
 }
