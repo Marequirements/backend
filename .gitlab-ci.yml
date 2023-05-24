@@ -1,0 +1,19 @@
+stages:
+  - build
+  - run
+
+build:
+ stage: build
+ image: docker:latest
+ services:
+    - docker:dind 
+ script:
+    - docker build -t go  .
+
+run:
+  stage: run
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker run -d go
