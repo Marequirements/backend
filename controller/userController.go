@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/go-chi/chi/v5"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
@@ -518,4 +519,105 @@ func (sc *StudentController) GetClassIDByTitle(classTitle string) (primitive.Obj
 	}
 	log.Println("GetClassIDByTitle: Found ID= ", class.Id, " for class= ", classTitle)
 	return class.Id, nil
+}
+func (sc *StudentController) HandleGetStudentsFromClass(w http.ResponseWriter, r *http.Request) {
+	log.Println("Function HandleGetStudentsFromClass called")
+
+	classTitle := chi.URLParam(r, "classTitle")
+	if classTitle == "" {
+		log.Println("HandleGetStudentsFromClass: classTitle parameter is missing")
+		util.WriteErrorResponse(w, http.StatusBadRequest, "classTitle parameter is missing")
+		return
+	}
+
+	classCollection := sc.db.Database("BrainBoard").Collection("class")
+	var classDoc struct {
+		ID primitive.ObjectID `bson:"_id"`
+	}
+	err := classCollection.FindOne(context.Background(), bson.M{"name": classTitle}).Decode(&classDoc)
+	if err != nil {
+		log.Println("HandleGetStudentsFromClass: Invalid class title")
+		util.WriteErrorResponse(w, http.StatusBadRequest, "Invalid class title")
+		return
+	}
+
+	userCollection := sc.db.Database("BrainBoard").Collection("user")
+
+	filter := bson.M{"class": classDoc.ID, "role": "student"}
+
+	cur, err := userCollection.Find(context.Background(), filter)
+	if err != nil {
+		log.Printf("Error getting students: %v", err)
+		util.WriteErrorResponse(w, http.StatusInternalServerError, "Error getting students")
+		return
+	}
+
+	var students []model.Student
+	if err = cur.All(context.Background(), &students); err != nil {
+		log.Printf("Error decoding students: %v", err)
+		util.WriteErrorResponse(w, http.StatusInternalServerError, "Error decoding students")
+		return
+	}
+
+	util.WriteSuccessResponse(w, http.StatusOK, students)
+}
+
+func (sc *StudentController) GetStudentsByClass(w http.ResponseWriter, r *http.Request) {
+	// First check if the user is a teacher
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		util.WriteErrorResponse(w, http.StatusBadRequest, "Authorization header not provided")
+		return
+	}
+	userToken := strings.TrimPrefix(authHeader, "Bearer ")
+
+	username, err := sc.ts.GetUsernameByToken(userToken)
+	if err != nil {
+		util.WriteErrorResponse(w, http.StatusUnauthorized, "Token is invalid")
+		return
+	}
+
+	role, err := sc.GetUserRole(username)
+	if err != nil || role != "teacher" {
+		util.WriteErrorResponse(w, http.StatusForbidden, "User does not have permission for this request")
+		return
+	}
+	classTitle := chi.URLParam(r, "class")
+
+	// Get a handle to the "user" collection.
+	collection := sc.db.Database("BrainBoard").Collection("user")
+
+	// Search for all students in the specified class.
+	filter := bson.M{"classTitle": classTitle, "role": "student"}
+
+	log.Println("GetStudentsByClass: Searching for class= ", classTitle)
+
+	var students []model.Student
+	cur, err := collection.Find(context.Background(), filter)
+	if err != nil {
+		log.Println("GetStudentsByClass: ", err)
+		util.WriteErrorResponse(w, http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+	defer cur.Close(context.Background())
+
+	for cur.Next(context.Background()) {
+		var student model.Student
+		err := cur.Decode(&student)
+		if err != nil {
+			log.Println("GetStudentsByClass: ", err)
+			util.WriteErrorResponse(w, http.StatusInternalServerError, "Internal Server Error")
+			return
+		}
+		students = append(students, student)
+	}
+
+	if err := cur.Err(); err != nil {
+		log.Println("GetStudentsByClass: ", err)
+		util.WriteErrorResponse(w, http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+
+	log.Println("GetStudentsByClass: Returning list of students in class= ", classTitle)
+	util.WriteSuccessResponse(w, http.StatusOK, students)
 }

@@ -46,6 +46,7 @@ func main() {
 	router.Post("/student", uc.HandleAddStudent)
 	router.Put("/student", uc.HandleEditStudent)
 	router.Delete("/student", uc.HandleDeleteStudent)
+	router.Get("/student/{classTitle}", uc.HandleGetStudentsFromClass)
 
 	router.Post("/subject", subjectc.HandleNewSubject)
 	router.Delete("/subject", subjectc.HandleDeleteSubject)
