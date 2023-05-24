@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/cors"
 	"log"
 	"net/http"
+	"os"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -16,6 +17,8 @@ import (
 //var ts *token.TokenStorage
 
 func main() {
+	mongoURL := os.Getenv("MONGO_URL")
+
 	router := chi.NewRouter()
 	router.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
@@ -26,7 +29,7 @@ func main() {
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
 	//conection to database
-	client, err := getDatabase()
+	client, err := getDatabase(mongoURL)
 	if err != nil {
 		log.Fatal("Error connecting to MongoDB: ", err)
 	}
@@ -63,8 +66,9 @@ func main() {
 	log.Println("Server started!")
 }
 
-func getDatabase() (*mongo.Client, error) {
-	clientOptions := options.Client().ApplyURI("mongodb+srv://mareklescinsky:EUFZTs6jcdkqqEUk@brainboard.lrpc8h3.mongodb.net/?retryWrites=true&w=majority")
+func getDatabase(url string) (*mongo.Client, error) {
+	log.Println("this is mongo url", url)
+	clientOptions := options.Client().ApplyURI(url)
 	client, err := mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
 		return nil, err
