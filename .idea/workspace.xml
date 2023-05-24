@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7dc4edc1-2337-4be4-9bbc-562bcc57c2df" name="Changes" comment="no changes" />
+    <list default="true" id="7dc4edc1-2337-4be4-9bbc-562bcc57c2df" name="Changes" comment="i dont know" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -42,7 +42,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="no changes" />
-    <option name="LAST_COMMIT_MESSAGE" value="no changes" />
+    <MESSAGE value="i dont know" />
+    <option name="LAST_COMMIT_MESSAGE" value="i dont know" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>
