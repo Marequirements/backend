@@ -6,6 +6,7 @@ import (
 	"back-end/util"
 	"context"
 	"encoding/json"
+	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -22,6 +23,69 @@ type SubjectController struct {
 
 func NewSubjectController(db *mongo.Client, ts *token.Storage, sc *StudentController) *SubjectController {
 	return &SubjectController{db: db, ts: ts, sc: sc}
+}
+
+func (sc *SubjectController) HandleGetFormSubjects(w http.ResponseWriter, r *http.Request) {
+	log.Println("Function HandleGetFormSubjects called")
+
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		log.Println("HandleGetFormSubjects: Token= ", authHeader, " is invalid")
+
+		//http.Error(w, "Token not provided", http.StatusBadRequest)
+		errMsg := "Token is invalid"
+		util.WriteErrorResponse(w, 401, errMsg)
+		return
+	}
+
+	log.Println("HandleGetFormSubjects: Got auth token= ", authHeader)
+
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if token == "" {
+		log.Println("HandleGetFormSubjects: Token= ", token, " is invalid")
+
+		errMsg := "Token is invalid"
+		util.WriteErrorResponse(w, 401, errMsg)
+		return
+	}
+
+	log.Println("HandleGetFormSubjects: Got token= ", token)
+
+	log.Println("HandleGetFormSubjects:  getting username from token")
+
+	// Get the username associated with the token
+	username, err := sc.ts.GetUsernameByToken(token)
+	if err != nil {
+		log.Println("HandleGetFormSubjects: Token= ", token, " is invalid")
+
+		errMsg := "Token is invalid"
+		util.WriteErrorResponse(w, 401, errMsg)
+		return
+	}
+	log.Println("HandleGetFormSubjects: Got username= ", username, " from token= ", token)
+
+	log.Println("HandleGetFormSubjects: Checking role")
+
+	// Check if the user has the teacher role
+	role, err := sc.GetUserRole(username)
+	if err != nil {
+		log.Println("HandleGetFormSubjects: Could not get role of ", username)
+
+		errMsg := "Could not get the role of user"
+		util.WriteErrorResponse(w, 500, errMsg)
+		return
+	}
+	if role != "teacher" {
+		log.Println("HandleGetFormSubjects: User= ", username, " does not have role of teacher, role= ", role)
+
+		errMsg := "User does not have permission for this request"
+		util.WriteErrorResponse(w, 403, errMsg)
+		return
+	}
+	log.Println("HandleGetFormSubjects: Success User= ", username, " does have teacher role,role=  ", role)
+
+	response := sc.GetAllSubjects()
+	util.WriteSuccessResponse(w, 200, response)
 }
 
 func (sc *SubjectController) HandleNewSubject(w http.ResponseWriter, r *http.Request) {
@@ -423,3 +487,34 @@ func (sc *SubjectController) GetTeacherIDByUsername(username string) (primitive.
 //
 //	return result
 //}
+
+func (sc *SubjectController) GetAllSubjects() []model.FormSubjects {
+	log.Println("Function GetAllSubject called")
+	subjectsCollection := sc.db.Database("BrainBoard").Collection("subject")
+	classesCollection := sc.db.Database("BrainBoard").Collection("class")
+
+	cur, _ := subjectsCollection.Find(context.Background(), bson.M{})
+	defer cur.Close(context.Background())
+
+	var results []model.FormSubjects
+
+	for cur.Next(context.Background()) {
+		var subject model.Subject
+		cur.Decode(&subject)
+
+		var class Class
+		log.Println("GetAllSubject: Searching for class with id= ", subject.Class)
+		classesCollection.FindOne(context.Background(), bson.M{"_id": subject.Class}).Decode(&class)
+
+		results = append(results, model.FormSubjects{
+			Class: class.Name,
+			Title: subject.Title,
+		})
+	}
+
+	for _, result := range results {
+		fmt.Printf("Name: %s, Title: %s\n", result.Class, result.Title)
+	}
+
+	return results
+}
