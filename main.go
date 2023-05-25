@@ -55,6 +55,7 @@ func main() {
 	router.Delete("/subject", subjectc.HandleDeleteSubject)
 
 	router.Get("/tasks", taskController.GetTasks)
+	router.Get("/task", subjectc.HandleGetFormSubjects)
 	router.Get("/task/{classTitle}", taskController.HandleTeacherTasks)
 
 	log.Println("Starting server...")
