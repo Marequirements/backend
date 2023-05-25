@@ -204,24 +204,8 @@ func (sc *StudentController) HandleLogout(w http.ResponseWriter, r *http.Request
 }
 
 func (sc *StudentController) HandleAddStudent(w http.ResponseWriter, r *http.Request) {
-	log.Println("Function HandleAddStudent called")
-
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		respondWithError(w, http.StatusBadRequest, "Authorization header not provided")
-		return
-	}
-	userToken := strings.TrimPrefix(authHeader, "Bearer ")
-
-	username, err := sc.ts.GetUsernameByToken(userToken)
+	_, err := util.TeacherLogin("HandleAddStudent", sc.db, sc.ts, w, r)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Token is invalid")
-		return
-	}
-
-	role, err := sc.GetUserRole(username)
-	if err != nil || role != "teacher" {
-		respondWithError(w, http.StatusForbidden, "User does not have permission for this request")
 		return
 	}
 
@@ -306,27 +290,8 @@ func (sc *StudentController) GetUserRole(username string) (string, error) {
 }
 
 func (sc *StudentController) HandleDeleteStudent(w http.ResponseWriter, r *http.Request) {
-	log.Println("Function HandleDeleteStudent called")
-
-	// Get the userToken from the header
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		respondWithError(w, http.StatusBadRequest, "Authorization header not provided")
-		return
-	}
-	userToken := strings.TrimPrefix(authHeader, "Bearer ")
-
-	// Get the username associated with the userToken
-	username, err := sc.ts.GetUsernameByToken(userToken)
+	_, err := util.TeacherLogin("HandleDeleteStudent", sc.db, sc.ts, w, r)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Token is invalid")
-		return
-	}
-
-	// Check if the user has the teacher role
-	role, err := sc.GetUserRole(username)
-	if err != nil || role != "teacher" {
-		respondWithError(w, http.StatusForbidden, "User does not have permission for this request")
 		return
 	}
 
@@ -383,24 +348,8 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 }
 
 func (sc *StudentController) HandleEditStudent(w http.ResponseWriter, r *http.Request) {
-	log.Println("Function HandleEditStudent called")
-
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		respondWithError(w, http.StatusBadRequest, "Authorization header not provided")
-		return
-	}
-	userToken := strings.TrimPrefix(authHeader, "Bearer ")
-
-	username, err := sc.ts.GetUsernameByToken(userToken)
+	_, err := util.TeacherLogin("HandleEditStudent", sc.db, sc.ts, w, r)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Token is invalid")
-		return
-	}
-
-	role, err := sc.GetUserRole(username)
-	if err != nil || role != "teacher" {
-		respondWithError(w, http.StatusForbidden, "User does not have permission for this request")
 		return
 	}
 

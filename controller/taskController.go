@@ -3,6 +3,7 @@ package controller
 import (
 	"back-end/model"
 	"back-end/token"
+	"back-end/util"
 	"context"
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
@@ -25,41 +26,8 @@ func NewTaskController(db *mongo.Client, ts *token.Storage, uc *StudentControlle
 }
 
 func (tc *TaskController) HandleTeacherTasks(w http.ResponseWriter, r *http.Request) {
-	log.Println("Function HandleTeacherTasks called")
-
-	log.Println("HandleTeacherTasks: Getting auth header")
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		log.Println("HandleTeacherTasks: Failed to get auth headr= ", authHeader)
-		respondWithError(w, http.StatusBadRequest, "Authorization header not provided")
-		return
-	}
-	log.Println("HandleTeacherTasks: Got authHeader= ", authHeader)
-	log.Println("HandleTeacherTasks: Getting token")
-	userToken := strings.TrimPrefix(authHeader, "Bearer ")
-	log.Println("HandleTeacherTasks: Token= ", userToken)
-
-	log.Println("HandleTeacherTasks: Getting username from token")
-	username, err := tc.ts.GetUsernameByToken(userToken)
+	username, err := util.TeacherLogin("HandleTeacherTasks", tc.db, tc.ts, w, r)
 	if err != nil {
-		log.Println("HandleTeacherTasks: Failed to get username from token= ", userToken)
-		log.Println("HandleTeacherTasks: Returning status code 401")
-		respondWithError(w, http.StatusUnauthorized, "Token is invalid")
-		return
-	}
-
-	log.Println("HandleTeacherTasks: GEtting role from username= ", username)
-	role, err := tc.GetUserRole(username)
-	if err != nil {
-		log.Println("HandleTeacherTasks: Failed to get role of user= ", username)
-		log.Println("HandleTeacherTasks: Returning status code 500")
-		respondWithError(w, http.StatusInternalServerError, "failed to get role of user")
-		return
-	}
-	if role != "teacher" {
-		log.Println("HandleTeacherTasks: User= ", username, " does not have teacher role, role= ", role)
-		log.Println("HandleTeacherTasks: Returning status code 403")
-		respondWithError(w, http.StatusForbidden, "User does not have permission for this request")
 		return
 	}
 
