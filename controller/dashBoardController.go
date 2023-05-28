@@ -82,12 +82,13 @@ func (dc *DashBoardController) HandleTeacherDashBoard(w http.ResponseWriter, r *
 			Tasks:    tasks,
 			Review:   countStr,
 		}
-		log.Println("HandleTeacherDashBoard: Sending all data= ", result)
+		log.Println("HandleTeacherDashBoard: number of tasks with state 3= ", countStr)
+		log.Println("HandleTeacherDashBoard: Sending all data= ", resp)
+		log.Println("HandleTeacherDashBoard: Sent response 200")
 
 		util.WriteSuccessResponse(w, 200, resp)
 		if err = cursor.Err(); err != nil {
 			log.Fatal(err)
 		}
-		log.Println("HandleTeacherDashBoard: Sent response 200")
 	}
 }
