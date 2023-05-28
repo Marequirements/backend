@@ -50,40 +50,29 @@ func (dc *DashBoardController) HandleTeacherDashBoard(w http.ResponseWriter, r *
 	log.Println("HandleTeacherDashBoard: number of tasks= ", tasks)
 
 	log.Println("HandleTeacherDashBoard: Counting number of students with tasks in state 3 for each task from database")
-	//doeas not work
-	filter = bson.M{
-		"students.status": "3",
-	}
-	projectStage := bson.D{
-		{"$project", bson.D{
-			{"numStudents", bson.D{
-				{"$size", bson.D{
-					{"$filter", bson.D{
-						{"input", "$students"},
-						{"as", "student"},
-						{"cond", bson.D{
-							{"$eq", bson.A{"$$student.status", "3"}},
-						}},
-					}},
-				}},
-			}},
-		}},
+
+	pipeline := mongo.Pipeline{
+		{{"$unwind", "$students"}},
+		{{"$match", bson.D{{"students.status", "3"}}}},
+		{{"$count", "count"}},
 	}
 
-	pipeline := mongo.Pipeline{bson.D{{"$match", filter}}, projectStage}
 	cursor, err := taskCollection.Aggregate(context.Background(), pipeline)
-	defer cursor.Close(context.Background())
 
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer cursor.Close(context.Background())
 	if cursor.Next(context.Background()) {
-		var result struct {
-			NumStudents int64 `bson:"numStudents"`
+		var result bson.M
+		if err := cursor.Decode(&result); err != nil {
+			log.Fatal(err)
 		}
-		err := cursor.Decode(&result)
-		if err != nil {
-			log.Println("HandleTeacherDashBoard: failed to get number of students")
-			util.WriteErrorResponse(w, 500, "Failed to get number of tasks in database")
-		}
-		state3 := strconv.FormatInt(result.NumStudents, 10)
+
+		count := result["count"]
+		countInt := count.(int32)
+		countStr := strconv.Itoa(int(countInt)) // convert integer count to string
 		resp := struct {
 			Students string `json:"students"`
 			Tasks    string `json:"tasks"`
@@ -91,9 +80,14 @@ func (dc *DashBoardController) HandleTeacherDashBoard(w http.ResponseWriter, r *
 		}{
 			Students: students,
 			Tasks:    tasks,
-			Review:   state3,
+			Review:   countStr,
 		}
-		util.WriteSuccessResponse(w, 200, resp)
-	}
+		log.Println("HandleTeacherDashBoard: Sending all data= ", result)
 
+		util.WriteSuccessResponse(w, 200, resp)
+		if err = cursor.Err(); err != nil {
+			log.Fatal(err)
+		}
+		log.Println("HandleTeacherDashBoard: Sent response 200")
+	}
 }
