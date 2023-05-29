@@ -46,3 +46,12 @@ type ClassTasks struct {
 	Deadline    primitive.DateTime `bson:"deadline"`
 	Subject     string             `bson:"subject"`
 }
+
+type NewTask struct {
+	Title       string             `bson:"title"`
+	Description string             `bson:"description"`
+	Deadline    primitive.DateTime `bson:"deadline"`
+	Class       primitive.ObjectID `bson:"CLass"`
+	Subject     primitive.ObjectID `bson:"subject"`
+	Students    []StudentStatus    `bson:"students"`
+}
