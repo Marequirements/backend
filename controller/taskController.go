@@ -13,6 +13,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type TaskController struct {
@@ -76,6 +77,25 @@ func (tc *TaskController) HandleTeacherTasks(w http.ResponseWriter, r *http.Requ
 	log.Println("HandleTeacherTasks: Returning status code 200")
 
 }
+
+//func (tc *TaskController) HandleAddTask(w http.ResponseWriter, r *http.Request) {
+//	_, err := util.TeacherLogin("HandleAddTask", tc.db, tc.ts, w, r)
+//	if err != nil {
+//		return
+//	}
+//	var req struct {
+//		Title       string `json:"title"`
+//		Description string `json:"description"`
+//		Deadline    string `json:"deadline"`
+//		Class       string `json:"class"`
+//		Subject     string `json:"subject"`
+//	}
+//
+//	err := json.NewDecoder(r.Body).Decode(&req)
+//	if err != nil {
+//		util.WriteErrorResponse(w)
+//	}
+//}
 
 func (tc *TaskController) GetClassTask(class primitive.ObjectID, teacher primitive.ObjectID) ([]model.ClassTasks, error) {
 	log.Println("Function GetClassTask called")
@@ -353,4 +373,83 @@ func (tc *TaskController) GetClassIdByClassTitle(classTitle string) (*primitive.
 	log.Println("GetClassIdByClassTitle: Found class= ", classTitle, " in database and id= ", id)
 	log.Println("GetClassIdByClassTitle: Returned values id= ", id, " error= nil")
 	return &id.ID, nil
+}
+
+func (tc *TaskController) GetSubjectIdBySubjectTitle(subjectTitle string) (*primitive.ObjectID, error) {
+	log.Println("Function GetSubjectIdBySubjectTitle called")
+	collection := tc.db.Database("BrainBoard").Collection("subject")
+
+	filter := bson.M{"name": subjectTitle}
+	//var id *primitive.ObjectID
+
+	var id struct {
+		ID primitive.ObjectID `bson:"_id"`
+	}
+
+	log.Println("GetSubjectIdBySubjectTitle: Searching for class= ", subjectTitle, " in database")
+	err := collection.FindOne(context.Background(), filter).Decode(&id)
+	if err != nil {
+		log.Println("GetSubjectIdBySubjectTitle: Failed to find class= ", subjectTitle, " Error: ", err)
+		return nil, err
+	}
+
+	log.Println("GetSubjectIdBySubjectTitle: Found class= ", subjectTitle, " in database and id= ", id)
+	log.Println("GetSubjectIdBySubjectTitle: Returned values id= ", id, " error= nil")
+	return &id.ID, nil
+}
+
+func (tc *TaskController) AddTask(title string, description string, deadline string, subject string, class string) error {
+	log.Println("Function AddTask called")
+	usercollection := tc.db.Database("BrainBoard").Collection("user")
+	taskCollection := tc.db.Database("BrainBoard").Collection("task")
+
+	classId, err := tc.GetClassIdByClassTitle(class)
+	if err != nil {
+		log.Println("GetSubjectIdByClassTitle: Failed to get class id from class= ", class)
+		return err
+	}
+
+	subjectId, err := tc.GetSubjectIdBySubjectTitle(subject)
+	if err != nil {
+		log.Println("GetSubjectIdByClassTitle: Failed to get subject id from subject= ", subject)
+		return err
+	}
+	var users []model.Student
+	cursor, err := usercollection.Find(context.Background(), bson.M{"role": "student", "class": classId})
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+	if err = cursor.All(context.Background(), &users); err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	t, err := time.Parse(time.RFC3339, deadline)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	date := primitive.NewDateTimeFromTime(t)
+	var studentStatus []model.StudentStatus
+	for _, user := range users {
+		studentStatus = append(studentStatus, model.StudentStatus{StudentID: user.Id, Status: "0"})
+	}
+
+	task := model.NewTask{
+		Title:       title,
+		Description: description,
+		Deadline:    date,
+		Subject:     *subjectId,
+		Students:    studentStatus,
+		Class:       *classId,
+	}
+
+	_, err = taskCollection.InsertOne(context.Background(), task)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+	return nil
 }
