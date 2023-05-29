@@ -114,7 +114,7 @@ func (tc *TaskController) HandleAddTask(w http.ResponseWriter, r *http.Request) 
 	}
 
 	log.Println("HandleAddTask: Task added to database, task")
-	util.WriteSuccessResponse(w, 201, "")
+	w.WriteHeader(http.StatusCreated)
 }
 
 func (tc *TaskController) GetClassTask(class primitive.ObjectID, teacher primitive.ObjectID) ([]model.ClassTasks, error) {
