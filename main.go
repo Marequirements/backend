@@ -58,6 +58,7 @@ func main() {
 	router.Get("/tasks", taskController.GetTasks)
 	router.Get("/task", subjectc.HandleGetFormSubjects)
 	router.Get("/task/{classTitle}", taskController.HandleTeacherTasks)
+	router.Post("/task", taskController.HandleAddTask)
 
 	router.Get("/teacher/dashboard", dashBoardController.HandleTeacherDashBoard)
 
