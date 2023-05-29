@@ -13,6 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -96,6 +97,19 @@ func (tc *TaskController) HandleAddTask(w http.ResponseWriter, r *http.Request) 
 	err = json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		util.WriteErrorResponse(w, 400, "JSON parameters not provided")
+		return
+	}
+	if req.Title == "" || req.Subject == "" || req.Class == "" || req.Deadline == "" || req.Description == "" {
+		util.WriteErrorResponse(w, 400, "JSON parameters not provided")
+		return
+	}
+
+	deadlinePattern := `^\d{4}-\d{2}-\d{2}$`
+	deadlineRegex := regexp.MustCompile(deadlinePattern)
+
+	if !deadlineRegex.MatchString(req.Deadline) {
+		util.WriteErrorResponse(w, 400, "Invalid deadline format. Use YYYY-MM-dd")
+		return
 	}
 
 	log.Println("HandleAddTask: Adding task to database, task")
@@ -104,13 +118,16 @@ func (tc *TaskController) HandleAddTask(w http.ResponseWriter, r *http.Request) 
 		if err.Error() == "subject does not exist" {
 			log.Println("HandleAddTask: subject= ", req.Subject, "is not in database")
 			util.WriteErrorResponse(w, 404, "Subject does not exist")
+			return
 		}
 		if err.Error() == "class does not exist" {
 			log.Println("HandleAddTask: class= ", req.Class, "is not in database")
 			util.WriteErrorResponse(w, 404, "Class does not exist")
+			return
 		}
 		log.Println("HandleAddTask: Failed to add task to database from request body", req)
 		util.WriteErrorResponse(w, 500, "Failed to add task to database")
+		return
 	}
 
 	log.Println("HandleAddTask: Task added to database, task")
@@ -430,14 +447,35 @@ func (tc *TaskController) SubjectExists(title string) bool {
 
 	collection := tc.db.Database("BrainBoard").Collection("subject")
 
-	_, err := collection.Find(context.Background(), bson.M{"title": title})
-	if err == mongo.ErrNoDocuments {
-		log.Println("SubjectExists: Returned false")
+	log.Println("SubjectExists: Searching for subject =", title)
+	cur, err := collection.Find(context.Background(), bson.M{"title": title})
+	if err != nil {
+		log.Println("SubjectExists: Failed to execute the find query:", err)
 		return false
 	}
-	log.Println("SubjectExists: Returned true")
-	return true
+	defer cur.Close(context.Background())
 
+	for cur.Next(context.Background()) {
+		var result bson.M
+		err := cur.Decode(&result)
+		if err != nil {
+			log.Println("SubjectExists: Failed to decode document:", err)
+			return false
+		}
+		// Document found, return true
+		log.Println("SubjectExists: Subject =", title, "is in the database")
+		log.Println("SubjectExists: Returned true")
+		return true
+	}
+
+	if cur.Err() != nil {
+		log.Println("SubjectExists: Error occurred while iterating over the cursor:", cur.Err())
+	}
+
+	// No matching documents found, return false
+	log.Println("SubjectExists: Failed to find subject =", title)
+	log.Println("SubjectExists: Returned false")
+	return false
 }
 
 func (tc *TaskController) ClassExists(name string) bool {
@@ -445,17 +483,35 @@ func (tc *TaskController) ClassExists(name string) bool {
 
 	collection := tc.db.Database("BrainBoard").Collection("class")
 
-	log.Println("ClassExists: Searching for class= ", name)
-	_, err := collection.Find(context.Background(), bson.M{"name": name})
-	if err == mongo.ErrNoDocuments {
-		log.Println("ClassExists: Failed to find class=", name)
-		log.Println("ClassExists: Returned false")
+	log.Println("ClassExists: Searching for class =", name)
+	cur, err := collection.Find(context.Background(), bson.M{"name": name})
+	if err != nil {
+		log.Println("ClassExists: Failed to execute the find query:", err)
 		return false
 	}
-	log.Println("ClassExists: Class= ", name, " is in database")
-	log.Println("ClassExists: Returned true")
-	return true
+	defer cur.Close(context.Background())
 
+	for cur.Next(context.Background()) {
+		var result bson.M
+		err := cur.Decode(&result)
+		if err != nil {
+			log.Println("ClassExists: Failed to decode document:", err)
+			return false
+		}
+		// Document found, return true
+		log.Println("ClassExists: Class =", name, "is in the database")
+		log.Println("ClassExists: Returned true")
+		return true
+	}
+
+	if cur.Err() != nil {
+		log.Println("ClassExists: Error occurred while iterating over the cursor:", cur.Err())
+	}
+
+	// No matching documents found, return false
+	log.Println("ClassExists: Failed to find class =", name)
+	log.Println("ClassExists: Returned false")
+	return false
 }
 
 func (tc *TaskController) AddTask(title string, description string, deadline string, subject string, class string) error {
