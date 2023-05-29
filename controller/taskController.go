@@ -6,6 +6,7 @@ import (
 	"back-end/util"
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/go-chi/chi/v5"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -78,24 +79,43 @@ func (tc *TaskController) HandleTeacherTasks(w http.ResponseWriter, r *http.Requ
 
 }
 
-//func (tc *TaskController) HandleAddTask(w http.ResponseWriter, r *http.Request) {
-//	_, err := util.TeacherLogin("HandleAddTask", tc.db, tc.ts, w, r)
-//	if err != nil {
-//		return
-//	}
-//	var req struct {
-//		Title       string `json:"title"`
-//		Description string `json:"description"`
-//		Deadline    string `json:"deadline"`
-//		Class       string `json:"class"`
-//		Subject     string `json:"subject"`
-//	}
-//
-//	err := json.NewDecoder(r.Body).Decode(&req)
-//	if err != nil {
-//		util.WriteErrorResponse(w)
-//	}
-//}
+func (tc *TaskController) HandleAddTask(w http.ResponseWriter, r *http.Request) {
+	_, err := util.TeacherLogin("HandleAddTask", tc.db, tc.ts, w, r)
+	if err != nil {
+		return
+	}
+	var req struct {
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		Deadline    string `json:"deadline"`
+		Class       string `json:"class"`
+		Subject     string `json:"subject"`
+	}
+
+	log.Println("HandleAddTask: Getting data from body")
+	err = json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		util.WriteErrorResponse(w, 400, "JSON parameters not provided")
+	}
+
+	log.Println("HandleAddTask: Adding task to database, task")
+	err = tc.AddTask(req.Title, req.Description, req.Deadline, req.Subject, req.Class)
+	if err != nil {
+		if err.Error() == "subject does not exist" {
+			log.Println("HandleAddTask: subject= ", req.Subject, "is not in database")
+			util.WriteErrorResponse(w, 404, "Subject does not exist")
+		}
+		if err.Error() == "class does not exist" {
+			log.Println("HandleAddTask: class= ", req.Class, "is not in database")
+			util.WriteErrorResponse(w, 404, "Class does not exist")
+		}
+		log.Println("HandleAddTask: Failed to add task to database from request body", req)
+		util.WriteErrorResponse(w, 500, "Failed to add task to database")
+	}
+
+	log.Println("HandleAddTask: Task added to database, task")
+	util.WriteSuccessResponse(w, 201, "")
+}
 
 func (tc *TaskController) GetClassTask(class primitive.ObjectID, teacher primitive.ObjectID) ([]model.ClassTasks, error) {
 	log.Println("Function GetClassTask called")
@@ -356,6 +376,10 @@ func (tc *TaskController) GetClassIdByClassTitle(classTitle string) (*primitive.
 	log.Println("Function GetClassIdByClassTitle called")
 	collection := tc.db.Database("BrainBoard").Collection("class")
 
+	if !tc.ClassExists(classTitle) {
+		return nil, fmt.Errorf("class does not exist")
+	}
+
 	filter := bson.M{"name": classTitle}
 	//var id *primitive.ObjectID
 
@@ -379,7 +403,10 @@ func (tc *TaskController) GetSubjectIdBySubjectTitle(subjectTitle string) (*prim
 	log.Println("Function GetSubjectIdBySubjectTitle called")
 	collection := tc.db.Database("BrainBoard").Collection("subject")
 
-	filter := bson.M{"name": subjectTitle}
+	if !tc.SubjectExists(subjectTitle) {
+		return nil, fmt.Errorf("subject does not exist")
+	}
+	filter := bson.M{"title": subjectTitle}
 	//var id *primitive.ObjectID
 
 	var id struct {
@@ -398,20 +425,62 @@ func (tc *TaskController) GetSubjectIdBySubjectTitle(subjectTitle string) (*prim
 	return &id.ID, nil
 }
 
+func (tc *TaskController) SubjectExists(title string) bool {
+	log.Println("Function SubjectExists called")
+
+	collection := tc.db.Database("BrainBoard").Collection("subject")
+
+	_, err := collection.Find(context.Background(), bson.M{"title": title})
+	if err == mongo.ErrNoDocuments {
+		log.Println("SubjectExists: Returned false")
+		return false
+	}
+	log.Println("SubjectExists: Returned true")
+	return true
+
+}
+
+func (tc *TaskController) ClassExists(name string) bool {
+	log.Println("Function ClassExists called")
+
+	collection := tc.db.Database("BrainBoard").Collection("class")
+
+	log.Println("ClassExists: Searching for class= ", name)
+	_, err := collection.Find(context.Background(), bson.M{"name": name})
+	if err == mongo.ErrNoDocuments {
+		log.Println("ClassExists: Failed to find class=", name)
+		log.Println("ClassExists: Returned false")
+		return false
+	}
+	log.Println("ClassExists: Class= ", name, " is in database")
+	log.Println("ClassExists: Returned true")
+	return true
+
+}
+
 func (tc *TaskController) AddTask(title string, description string, deadline string, subject string, class string) error {
 	log.Println("Function AddTask called")
 	usercollection := tc.db.Database("BrainBoard").Collection("user")
 	taskCollection := tc.db.Database("BrainBoard").Collection("task")
 
 	classId, err := tc.GetClassIdByClassTitle(class)
+
 	if err != nil {
-		log.Println("GetSubjectIdByClassTitle: Failed to get class id from class= ", class)
+		if err.Error() == "class does not exist" {
+			log.Println("AddTask: Failed to get class id from class= ", class, " returned error=", err)
+			return err
+		}
+		log.Println("AddTask: Failed to get class id from class= ", class, " returned error=", err)
 		return err
 	}
 
 	subjectId, err := tc.GetSubjectIdBySubjectTitle(subject)
 	if err != nil {
-		log.Println("GetSubjectIdByClassTitle: Failed to get subject id from subject= ", subject)
+		if err.Error() == "subject does not exist" {
+			log.Println("AddTask: Failed to get subject id from subject= ", subject, " returned error=", err)
+			return err
+		}
+		log.Println("AddTask: Failed to get subject id from subject= ", subject)
 		return err
 	}
 	var users []model.Student
@@ -425,7 +494,7 @@ func (tc *TaskController) AddTask(title string, description string, deadline str
 		return err
 	}
 
-	t, err := time.Parse(time.RFC3339, deadline)
+	t, err := time.Parse("2006-01-02", deadline)
 	if err != nil {
 		log.Fatal(err)
 		return err
@@ -451,5 +520,6 @@ func (tc *TaskController) AddTask(title string, description string, deadline str
 		log.Fatal(err)
 		return err
 	}
+	log.Println("AddTask: added task to database, task= ", task)
 	return nil
 }
