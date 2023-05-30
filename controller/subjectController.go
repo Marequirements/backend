@@ -119,6 +119,13 @@ func (sc *SubjectController) HandleDeleteSubject(w http.ResponseWriter, r *http.
 		util.WriteErrorResponse(w, 400, errMsg)
 		return
 	}
+	if subject.ClassTitle == "" || subject.Title == "" {
+		log.Println("HandleDeleteSubject: JSON parameters not provided ", r.Body)
+
+		errMsg := "JSON parameters not provided"
+		util.WriteErrorResponse(w, 400, errMsg)
+		return
+	}
 	log.Println("HandleDeleteSubject: Data decoded successfully= ", r.Body)
 
 	log.Println("HandleDeleteSubject: Getting objectid of class ", subject.ClassTitle)
