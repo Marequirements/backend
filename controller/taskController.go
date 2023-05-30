@@ -29,6 +29,10 @@ func NewTaskController(db *mongo.Client, ts *token.Storage, uc *StudentControlle
 }
 
 func (tc *TaskController) HandleTeacherTasks(w http.ResponseWriter, r *http.Request) {
+	_, err := util.TeacherLogin("HandleTeacherTasks", tc.db, tc.ts, w, r)
+	if err != nil {
+		return
+	}
 	username, err := util.TeacherLogin("HandleTeacherTasks", tc.db, tc.ts, w, r)
 	if err != nil {
 		return
@@ -132,6 +136,52 @@ func (tc *TaskController) HandleAddTask(w http.ResponseWriter, r *http.Request) 
 
 	log.Println("HandleAddTask: Task added to database, task")
 	w.WriteHeader(http.StatusCreated)
+}
+
+func (tc *TaskController) HandleDeleteTask(w http.ResponseWriter, r *http.Request) {
+	log.Println("HandleDeleteTask: Function called")
+	_, err := util.TeacherLogin("HandleDeleteTask", tc.db, tc.ts, w, r)
+	if err != nil {
+		return
+	}
+
+	var req struct {
+		ID string `json:"id"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		log.Println("HandleDeleteTask: JSON parameters not provided")
+		util.WriteErrorResponse(w, 400, "JSON parameters not provided")
+		return
+	}
+
+	if req.ID == "" {
+		log.Println("HandleDeleteTask: JSON parameters not provided")
+		util.WriteErrorResponse(w, 400, "JSON parameters not provided")
+		return
+	}
+
+	objectID, err := primitive.ObjectIDFromHex(req.ID)
+	if err != nil {
+		log.Println("HandleDeleteTask: Invalid ID format")
+		util.WriteErrorResponse(w, 400, "Invalid ID format")
+		return
+	}
+
+	err = tc.DeleteTask(objectID)
+	if err != nil {
+		if err.Error() == "task does not exist" {
+			log.Println("HandleDeleteTask: Task does not exist")
+			util.WriteErrorResponse(w, 404, "Task does not exist")
+		} else {
+			log.Println("HandleDeleteTask: Failed to delete task")
+			util.WriteErrorResponse(w, 500, "Failed to delete task")
+		}
+		return
+	}
+
+	log.Println("HandleDeleteTask: Task deleted successfully")
 }
 
 func (tc *TaskController) GetClassTask(class primitive.ObjectID, teacher primitive.ObjectID) ([]model.ClassTasks, error) {
@@ -514,6 +564,17 @@ func (tc *TaskController) ClassExists(name string) bool {
 	return false
 }
 
+func (tc *TaskController) TaskExists(id primitive.ObjectID) bool {
+	collection := tc.db.Database("BrainBoard").Collection("task")
+
+	count, err := collection.CountDocuments(context.Background(), bson.M{"_id": id})
+	if err != nil {
+		return false
+	}
+
+	return count > 0
+}
+
 func (tc *TaskController) AddTask(title string, description string, deadline string, subject string, class string) error {
 	log.Println("Function AddTask called")
 	usercollection := tc.db.Database("BrainBoard").Collection("user")
@@ -577,5 +638,25 @@ func (tc *TaskController) AddTask(title string, description string, deadline str
 		return err
 	}
 	log.Println("AddTask: added task to database, task= ", task)
+	return nil
+}
+
+func (tc *TaskController) DeleteTask(id primitive.ObjectID) error {
+	log.Println("Function DeleteTask called")
+	collection := tc.db.Database("BrainBoard").Collection("task")
+
+	log.Println("DeleteTask: Checking if task exists")
+	if !tc.TaskExists(id) {
+		log.Println("DeleteTask: Task does not exist")
+		return fmt.Errorf("task does not exist")
+	}
+
+	log.Println("DeleteTask: Deleting task")
+	_, err := collection.DeleteOne(context.Background(), bson.M{"_id": id})
+	if err != nil {
+		return err
+	}
+
+	log.Println("DeleteTask: Task deleted successfully")
 	return nil
 }
