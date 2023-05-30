@@ -22,35 +22,39 @@ func NewDashBoardController(db *mongo.Client, ts *token.Storage, uc *StudentCont
 	return &DashBoardController{db: db, ts: ts, uc: uc, tc: tc}
 }
 
+type DashboardResponse struct {
+	Students string `json:"students"`
+	Tasks    string `json:"tasks"`
+	Review   string `json:"review"`
+}
+
 func (dc *DashBoardController) HandleTeacherDashBoard(w http.ResponseWriter, r *http.Request) {
 	_, err := util.TeacherLogin("HandleTeacherDashBoard", dc.db, dc.ts, w, r)
 	if err != nil {
+		util.WriteErrorResponse(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
+
 	userCollection := dc.db.Database("BrainBoard").Collection("user")
 	taskCollection := dc.db.Database("BrainBoard").Collection("task")
 
-	log.Println("HandleTeacherDashBoard: Counting students in database")
-	filter := bson.M{"role": "student"}
-	count, err := userCollection.CountDocuments(context.Background(), filter)
+	// Counting students in the database
+	studentsCount, err := userCollection.CountDocuments(context.Background(), bson.M{"role": "student"})
 	if err != nil {
 		log.Println("HandleTeacherDashBoard: failed to get number of students")
-		util.WriteErrorResponse(w, 500, "Failed to get number of students in database")
+		util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to get number of students in database")
+		return
 	}
-	students := strconv.FormatInt(count, 10)
-	log.Println("HandleTeacherDashBoard: number of students= ", students)
 
-	log.Println("HandleTeacherDashBoard: Counting tasks in database")
-	count, err = taskCollection.CountDocuments(context.Background(), bson.M{})
+	// Counting tasks in the database
+	tasksCount, err := taskCollection.CountDocuments(context.Background(), bson.M{})
 	if err != nil {
-		log.Println("HandleTeacherDashBoard: failed to get number of students")
-		util.WriteErrorResponse(w, 500, "Failed to get number of tasks in database")
+		log.Println("HandleTeacherDashBoard: failed to get number of tasks")
+		util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to get number of tasks in database")
+		return
 	}
-	tasks := strconv.FormatInt(count, 10)
-	log.Println("HandleTeacherDashBoard: number of tasks= ", tasks)
 
-	log.Println("HandleTeacherDashBoard: Counting number of students with tasks in state 3 for each task from database")
-
+	// Counting number of students with tasks in state 3 for each task from the database
 	pipeline := mongo.Pipeline{
 		{{"$unwind", "$students"}},
 		{{"$match", bson.D{{"students.status", "3"}}}},
@@ -58,37 +62,38 @@ func (dc *DashBoardController) HandleTeacherDashBoard(w http.ResponseWriter, r *
 	}
 
 	cursor, err := taskCollection.Aggregate(context.Background(), pipeline)
-
 	if err != nil {
-		log.Fatal(err)
+		log.Println("HandleTeacherDashBoard: failed to aggregate tasks")
+		util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to aggregate tasks in database")
+		return
+	}
+	defer cursor.Close(context.Background())
+
+	resp := DashboardResponse{
+		Students: strconv.FormatInt(studentsCount, 10),
+		Tasks:    strconv.FormatInt(tasksCount, 10),
+		Review:   "0", // Default value if no tasks with state 3 found
 	}
 
-	defer cursor.Close(context.Background())
 	if cursor.Next(context.Background()) {
 		var result bson.M
 		if err := cursor.Decode(&result); err != nil {
-			log.Fatal(err)
+			log.Println("HandleTeacherDashBoard: failed to decode cursor result")
+			util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to process task result")
+			return
 		}
 
 		count := result["count"]
-		countInt := count.(int32)
-		countStr := strconv.Itoa(int(countInt)) // convert integer count to string
-		resp := struct {
-			Students string `json:"students"`
-			Tasks    string `json:"tasks"`
-			Review   string `json:"review"`
-		}{
-			Students: students,
-			Tasks:    tasks,
-			Review:   countStr,
+		countInt, ok := count.(int32)
+		if !ok {
+			log.Println("HandleTeacherDashBoard: invalid count type")
+			util.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to process task count")
+			return
 		}
-		log.Println("HandleTeacherDashBoard: number of tasks with state 3= ", countStr)
-		log.Println("HandleTeacherDashBoard: Sending all data= ", resp)
-		log.Println("HandleTeacherDashBoard: Sent response 200")
 
-		util.WriteSuccessResponse(w, 200, resp)
-		if err = cursor.Err(); err != nil {
-			log.Fatal(err)
-		}
+		resp.Review = strconv.Itoa(int(countInt))
 	}
+
+	log.Println("HandleTeacherDashBoard: Sending response:", resp)
+	util.WriteSuccessResponse(w, http.StatusOK, resp)
 }
