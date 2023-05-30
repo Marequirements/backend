@@ -56,9 +56,11 @@ func main() {
 	router.Delete("/subject", subjectc.HandleDeleteSubject)
 
 	router.Get("/tasks", taskController.GetTasks)
+	//returns subjects for add form
 	router.Get("/task", subjectc.HandleGetFormSubjects)
 	router.Get("/task/{classTitle}", taskController.HandleTeacherTasks)
 	router.Post("/task", taskController.HandleAddTask)
+	router.Delete("/task", taskController.HandleDeleteTask)
 
 	router.Get("/teacher/dashboard", dashBoardController.HandleTeacherDashBoard)
 
