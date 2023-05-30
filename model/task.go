@@ -51,7 +51,7 @@ type NewTask struct {
 	Title       string             `bson:"title"`
 	Description string             `bson:"description"`
 	Deadline    primitive.DateTime `bson:"deadline"`
-	Class       primitive.ObjectID `bson:"CLass"`
+	Class       primitive.ObjectID `bson:"class"`
 	Subject     primitive.ObjectID `bson:"subject"`
 	Students    []StudentStatus    `bson:"students"`
 }
