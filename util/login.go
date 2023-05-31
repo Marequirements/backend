@@ -42,7 +42,44 @@ func TeacherLogin(functionName string, db *mongo.Client, ts *token.Storage, w ht
 	log.Println(functionName, ":role= ", role, " username= ", username)
 
 	log.Println(functionName, ":checking if role is teacher")
-	err = checkRole(role, w, username)
+	err = checkTeacherRole(role, w, username)
+	if err != nil {
+		log.Println(functionName, ":username= ", username, " checked role is teacher,role= ", role)
+		return "", err
+	}
+	return username, nil
+}
+
+func StudentLogin(functionName string, db *mongo.Client, ts *token.Storage, w http.ResponseWriter, r *http.Request) (string, error) {
+	log.Println("Function ", functionName, " called")
+
+	log.Println(functionName, ":getting suth header")
+	authHeader, err := getAuthHeader(w, r)
+	if err != nil {
+		return "", err
+	}
+	log.Println(functionName, ":got auth header= ", authHeader)
+
+	log.Println(functionName, ":getting token")
+	userToken := getToken(authHeader)
+	log.Println(functionName, ":token=", userToken)
+
+	log.Println(functionName, ":getting username from token")
+	username, err := getUsernameFromToken(userToken, ts, w)
+	if err != nil {
+		return "", err
+	}
+	log.Println(functionName, ":username= ", username, " from token= ", userToken)
+
+	log.Println(functionName, ":getting role from username")
+	role, err := getUserRoleFromUsername(username, w, db)
+	if err != nil {
+		return "", err
+	}
+	log.Println(functionName, ":role= ", role, " username= ", username)
+
+	log.Println(functionName, ":checking if role is teacher")
+	err = checkStudentRole(role, w, username)
 	if err != nil {
 		log.Println(functionName, ":username= ", username, " checked role is teacher,role= ", role)
 		return "", err
@@ -95,14 +132,25 @@ func getUserRoleFromUsername(username string, w http.ResponseWriter, db *mongo.C
 	return role, nil
 }
 
-func checkRole(role string, w http.ResponseWriter, username string) error {
+func checkTeacherRole(role string, w http.ResponseWriter, username string) error {
 	if role != "teacher" {
-		log.Println("checkRole: User= ", username, " does not have teacher role, role= ", role)
-		log.Println("checkRole: Returning status code 403")
+		log.Println("checkTeacherRole: User= ", username, " does not have teacher role, role= ", role)
+		log.Println("checkTeacherRole: Returning status code 403")
 		WriteErrorResponse(w, http.StatusForbidden, "User does not have permission for this request")
 		return fmt.Errorf("user does not have teacher role")
 	}
-	log.Println("checkRole: user role= ", role, " is teacher")
+	log.Println("checkTeacherRole: user role= ", role, " is teacher")
+	return nil
+}
+
+func checkStudentRole(role string, w http.ResponseWriter, username string) error {
+	if role != "student" {
+		log.Println("checkStudentRole: User= ", username, " does not have student role, role= ", role)
+		log.Println("checkStudentRole: Returning status code 403")
+		WriteErrorResponse(w, http.StatusForbidden, "User does not have permission for this request")
+		return fmt.Errorf("user does not have student role")
+	}
+	log.Println("checkStudentRole: user role= ", role, " is student")
 	return nil
 }
 

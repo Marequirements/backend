@@ -55,3 +55,10 @@ type NewTask struct {
 	Subject     primitive.ObjectID `bson:"subject"`
 	Students    []StudentStatus    `bson:"students"`
 }
+
+type StudentDashboardTask struct {
+	Title       string             `bson:"title" json:"title"`
+	Description string             `bson:"description" json:"description"`
+	Deadline    primitive.DateTime `bson:"deadline" json:"deadline"`
+	Students    []StudentStatus    `bson:"students" json:"-"`
+}
