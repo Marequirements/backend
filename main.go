@@ -44,8 +44,11 @@ func main() {
 	dashBoardController := controller.NewDashBoardController(client, ts, uc, taskController)
 
 	router.Post("/login", uc.HandleLogin)
-
 	router.Post("/logout", uc.HandleLogout)
+
+	router.Get("/teacher/dashboard", dashBoardController.HandleTeacherDashBoard)
+	router.Get("/student/dashboard", dashBoardController.HandleStudentDashboard)
+	router.Get("/student/dashboard/{subjectTitle}", dashBoardController.HandleStudentDashboard)
 
 	router.Post("/student", uc.HandleAddStudent)
 	router.Put("/student", uc.HandleEditStudent)
@@ -55,14 +58,14 @@ func main() {
 	router.Post("/subject", subjectc.HandleNewSubject)
 	router.Delete("/subject", subjectc.HandleDeleteSubject)
 
+	//needs to be removed
 	router.Get("/tasks", taskController.GetTasks)
+
 	//returns subjects for add form
 	router.Get("/task", subjectc.HandleGetFormSubjects)
 	router.Get("/task/{classTitle}", taskController.HandleTeacherTasks)
 	router.Post("/task", taskController.HandleAddTask)
 	router.Delete("/task", taskController.HandleDeleteTask)
-
-	router.Get("/teacher/dashboard", dashBoardController.HandleTeacherDashBoard)
 
 	log.Println("Starting server...")
 	err = http.ListenAndServe(":8080", router)

@@ -29,10 +29,6 @@ func NewTaskController(db *mongo.Client, ts *token.Storage, uc *StudentControlle
 }
 
 func (tc *TaskController) HandleTeacherTasks(w http.ResponseWriter, r *http.Request) {
-	_, err := util.TeacherLogin("HandleTeacherTasks", tc.db, tc.ts, w, r)
-	if err != nil {
-		return
-	}
 	username, err := util.TeacherLogin("HandleTeacherTasks", tc.db, tc.ts, w, r)
 	if err != nil {
 		return
