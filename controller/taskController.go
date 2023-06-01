@@ -309,6 +309,7 @@ func (tc *TaskController) GetTasksWithStatus3(id primitive.ObjectID) ([]model.Ta
 				err := studentCollection.FindOne(context.Background(), bson.M{"_id": studentStatus.StudentID}).Decode(&student)
 				if err != nil {
 					log.Println("Failed to fetch student for task")
+					log.Println("Fetching student with ID: ", studentStatus.StudentID)
 					return nil, err
 				}
 
