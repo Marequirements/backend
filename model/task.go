@@ -20,6 +20,7 @@ type StudentStatus struct {
 }
 
 type TaskWithStudent struct {
+	TaskID      primitive.ObjectID `json:"taskId"`
 	StudentID   primitive.ObjectID `json:"studentId"`
 	TaskName    string             `json:"taskName"`
 	Subject     string             `json:"subject"`
