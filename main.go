@@ -58,8 +58,10 @@ func main() {
 	router.Post("/subject", subjectc.HandleNewSubject)
 	router.Delete("/subject", subjectc.HandleDeleteSubject)
 
-	//needs to be removed
-	router.Get("/tasks", taskController.GetTasks)
+	//for task in review for students in 1.N
+	router.Get("/review", taskController.HandleGetTasks)
+	//for tasks in review for students based on path variable
+	router.Get("/review/{classTitle}", taskController.HandleGetTasks)
 
 	//returns subjects for add form
 	router.Get("/task", subjectc.HandleGetFormSubjects)
