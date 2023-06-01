@@ -71,7 +71,7 @@ func (tc *TaskController) HandleTeacherTasks(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(tasks); err != nil {
-		log.Println("GetTasks: Failed to write tasks to body, tasks= ", tasks)
+		log.Println("HandleGetTasks: Failed to write tasks to body, tasks= ", tasks)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -246,13 +246,16 @@ func (tc *TaskController) GetClassTask(class primitive.ObjectID, teacher primiti
 
 }
 
-func (tc *TaskController) GetTasksWithStatus3() ([]model.TaskWithStudent, error) {
+func (tc *TaskController) GetTasksWithStatus3(id primitive.ObjectID) ([]model.TaskWithStudent, error) {
 	log.Println("Function GetTaskWithStatus3 called")
 	// Get a handle to the "tasks" collection.
 	collection := tc.db.Database("BrainBoard").Collection("task")
 
 	// Define the filter for tasks with students having status "3".
-	filter := bson.M{"students": bson.M{"$elemMatch": bson.M{"status": "3"}}}
+	filter := bson.M{
+		"class":    bson.M{"$eq": id},
+		"students": bson.M{"$elemMatch": bson.M{"status": "3"}},
+	}
 
 	log.Println("GetTaskWithStatus3: Searching for tasks with status 3 in task collection")
 
@@ -310,6 +313,7 @@ func (tc *TaskController) GetTasksWithStatus3() ([]model.TaskWithStudent, error)
 				}
 
 				response = append(response, model.TaskWithStudent{
+					TaskID:      task.Id,
 					StudentID:   studentStatus.StudentID,
 					TaskName:    task.Title,
 					Subject:     subjectTitleMap[task.Subject],
@@ -325,69 +329,81 @@ func (tc *TaskController) GetTasksWithStatus3() ([]model.TaskWithStudent, error)
 	return response, nil
 }
 
-func (tc *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
-	log.Println("Function GetTasks called")
+func (tc *TaskController) HandleGetTasks(w http.ResponseWriter, r *http.Request) {
+	log.Println("Function HandleGetTasks called")
 
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
-		log.Println("GetTasks: Failed to get authHeader= ", authHeader)
+		log.Println("HandleGetTasks: Failed to get authHeader= ", authHeader)
 
 		http.Error(w, "Authorization header not provided", http.StatusBadRequest)
 		return
 	}
-	log.Println("GetTasks: Got authHeader= ", authHeader)
+	log.Println("HandleGetTasks: Got authHeader= ", authHeader)
 
-	log.Println("GetTasks: Getting token")
+	log.Println("HandleGetTasks: Getting token")
 
 	authToken := strings.TrimPrefix(authHeader, "Bearer ")
 
-	log.Println("GetTasks: Got token= ", authToken)
+	log.Println("HandleGetTasks: Got token= ", authToken)
 
-	log.Println("GetTasks: Getting username from token ", authToken)
-	// Get the username associated with the authToken
-	username, err := tc.uc.ts.GetUsernameByToken(authToken)
+	log.Println("HandleGetTasks: Getting username from token ", authToken)
+	_, err := util.TeacherLogin("HandleGetTasks", tc.db, tc.ts, w, r)
 	if err != nil {
-		log.Println("GetTasks: Failed could not get the username from token ", authToken)
-		http.Error(w, "Invalid authToken", http.StatusUnauthorized)
 		return
 	}
-	log.Println("GetTasks: Got username= ", username, " from token= ", authToken)
+	classTitle := chi.URLParam(r, "classTitle")
+	if classTitle == "" {
+		log.Println("HandleGetTask: Path variable is empty")
+		log.Println("HandleGetTasks: Getting tasks with status 3")
+		// Get tasks with status 3
+		classID, err := tc.GetClassIdByClassTitle("1.N")
+		if err != nil {
+			util.WriteErrorResponse(w, 500, "Failed to get class id")
+			return
+		}
+		tasks, err := tc.GetTasksWithStatus3(*classID)
+		if err != nil {
+			log.Println("HandleGetTasks: Failed to get tasks")
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		log.Println("HandleGetTasks: got tasks= ", tasks)
 
-	log.Println("GetTasks: Checking the role of user= ", username)
-
-	// Check if the user has the teacher role
-	role, err := tc.uc.GetUserRole(username)
-	if err != nil {
-		log.Println("GetTasks: Failed to get user role for user= ", username)
-		http.Error(w, "Unauthorized access", http.StatusInternalServerError)
-		return
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(tasks); err != nil {
+			log.Println("HandleGetTasks: Failed to write tasks to body, tasks= ", tasks)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		log.Println("HandleGetTasks: Tasks sent successfully")
 	}
-	if role != "teacher" {
-		log.Println("GetTasks: user= ", username, " does not have teacher role, role= ", role)
-		http.Error(w, "Unauthorized access", http.StatusForbidden)
-		return
-	}
-	log.Println("GetTasks: user= ", username, " does have teacher role, role= ", role)
 
-	log.Println("GetTasks: Getting tasks with status 3")
+	log.Println("HandleGetTask: Path variable is =", classTitle)
+	log.Println("HandleGetTasks: Getting tasks with status 3")
 	// Get tasks with status 3
-	tasks, err := tc.GetTasksWithStatus3()
+	classID, err := tc.GetClassIdByClassTitle(classTitle)
 	if err != nil {
-		log.Println("GetTasks: Failed to get tasks")
+		util.WriteErrorResponse(w, 500, "Failed to get class id")
+		return
+	}
+	tasks, err := tc.GetTasksWithStatus3(*classID)
+	if err != nil {
+		log.Println("HandleGetTasks: Failed to get tasks")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	log.Println("GetTasks: got tasks= ", tasks)
+	log.Println("HandleGetTasks: got tasks= ", tasks)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(tasks); err != nil {
-		log.Println("GetTasks: Failed to write tasks to body, tasks= ", tasks)
+		log.Println("HandleGetTasks: Failed to write tasks to body, tasks= ", tasks)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	log.Println("GetTasks: Tasks sent successfully")
-}
+	log.Println("HandleGetTasks: Tasks sent successfully")
 
+}
 func (tc *TaskController) GetUserRole(username string) (string, error) {
 	log.Println("Function GetUserRole called")
 	// Get a handle to the "user" collection.
