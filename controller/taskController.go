@@ -81,7 +81,7 @@ func (tc *TaskController) HandleTeacherTasks(w http.ResponseWriter, r *http.Requ
 }
 
 func (tc *TaskController) HandleAddTask(w http.ResponseWriter, r *http.Request) {
-	_, err := util.TeacherLogin("HandleAddTask", tc.db, tc.ts, w, r)
+	username, err := util.TeacherLogin("HandleAddTask", tc.db, tc.ts, w, r)
 	if err != nil {
 		return
 	}
@@ -109,6 +109,53 @@ func (tc *TaskController) HandleAddTask(w http.ResponseWriter, r *http.Request) 
 
 	if !deadlineRegex.MatchString(req.Deadline) {
 		util.WriteErrorResponse(w, 400, "Invalid deadline format. Use YYYY-MM-dd")
+		return
+	}
+
+	log.Println("HandleAddTask: getting user id of user= ", username)
+	userID, err := tc.GetIdByUsername(username)
+	if err != nil {
+		log.Println("HandleAddTask: username=", username, "not in database")
+	}
+
+	// Get subject details
+	var subject model.Subject
+
+	log.Println("HandleAddTask: getting subject id of subject= ", req.Subject)
+	subjectID, err := tc.GetSubjectIdBySubjectTitle(req.Subject)
+	if err != nil {
+		if err.Error() == "subject does not exist" {
+			util.WriteErrorResponse(w, 404, "Subject does not exist")
+			return
+		}
+		util.WriteErrorResponse(w, 500, "Invalid subject ID")
+		return
+	}
+
+	subjectCollection := tc.db.Database("BrainBoard").Collection("subject")
+	filter := bson.M{"_id": subjectID}
+
+	err = subjectCollection.FindOne(context.Background(), filter).Decode(&subject)
+	if err != nil {
+		util.WriteErrorResponse(w, 500, "Invalid subject ID")
+		return
+	}
+	//checking if class exists
+	_, err = tc.GetClassIdByClassTitle(req.Class)
+	if err != nil {
+		if err.Error() == "class does not exist" {
+			util.WriteErrorResponse(w, 404, "Class does not exist")
+			return
+		}
+		util.WriteErrorResponse(w, 500, "Invalid class ID")
+		return
+	}
+
+	log.Println("HandleAddTask: Checking logged in user id= ", userID, " and subject teacher id= ", subject.Teacher)
+	// Check if teacher is associated with the subject
+	if subject.Teacher != *userID {
+		log.Println("HandleAddTask: Teacher not associated with the subject")
+		util.WriteErrorResponse(w, 403, "Teacher is not owner of subject")
 		return
 	}
 
