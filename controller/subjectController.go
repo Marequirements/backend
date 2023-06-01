@@ -25,12 +25,19 @@ func NewSubjectController(db *mongo.Client, ts *token.Storage, uc *StudentContro
 }
 
 func (sc *SubjectController) HandleGetFormSubjects(w http.ResponseWriter, r *http.Request) {
-	_, err := util.TeacherLogin("HandleGetFormSubjects", sc.db, sc.ts, w, r)
+	username, err := util.TeacherLogin("HandleGetFormSubjects", sc.db, sc.ts, w, r)
 	if err != nil {
 		return
 	}
 
-	response := sc.GetAllSubjects()
+	log.Println("HandleGetFormSubjects: Getting user id from username= ", username)
+	teacherID, err := sc.GetTeacherIDByUsername(username)
+	if err != nil {
+		log.Println("HandleGetFormSubjects: Failed to get id of user= ", username)
+		return
+	}
+
+	response := sc.GetAllSubjects(teacherID)
 	util.WriteSuccessResponse(w, 200, response)
 }
 
@@ -281,12 +288,13 @@ func (sc *SubjectController) GetTeacherIDByUsername(username string) (primitive.
 	return user.Id, nil
 }
 
-func (sc *SubjectController) GetAllSubjects() []model.FormSubjects {
+func (sc *SubjectController) GetAllSubjects(teacherID primitive.ObjectID) []model.FormSubjects {
 	log.Println("Function GetAllSubject called")
 	subjectsCollection := sc.db.Database("BrainBoard").Collection("subject")
 	classesCollection := sc.db.Database("BrainBoard").Collection("class")
 
-	cur, _ := subjectsCollection.Find(context.Background(), bson.M{})
+	filter := bson.M{"teacher": teacherID}
+	cur, _ := subjectsCollection.Find(context.Background(), filter)
 	defer cur.Close(context.Background())
 
 	var results []model.FormSubjects
