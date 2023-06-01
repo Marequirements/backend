@@ -322,17 +322,35 @@ func (sc *StudentController) DeleteStudent(username string) error {
 	log.Println("Function DeleteStudent called")
 
 	// Get a handle to the "user" collection
-	collection := sc.db.Database("BrainBoard").Collection("user")
+	userCollection := sc.db.Database("BrainBoard").Collection("user")
+
+	// Find the student in the collection
+	userFilter := bson.M{"username": username, "role": "student"}
+	var student model.Student
+	err := userCollection.FindOne(context.Background(), userFilter).Decode(&student)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return fmt.Errorf("no student found with the specified username")
+		}
+		return err
+	}
 
 	// Delete the student from the collection
-	filter := bson.M{"username": username, "role": "student"}
-	res, err := collection.DeleteOne(context.Background(), filter)
+	_, err = userCollection.DeleteOne(context.Background(), userFilter)
 	if err != nil {
 		return err
 	}
 
-	if res.DeletedCount == 0 {
-		return fmt.Errorf("no student found with the specified username")
+	// Get a handle to the "tasks" collection
+	taskCollection := sc.db.Database("BrainBoard").Collection("task")
+
+	// Remove the student from all tasks
+	taskFilter := bson.M{"students.studentid": student.Id}
+	update := bson.M{"$pull": bson.M{"students": bson.M{"studentid": student.Id}}}
+	_, err = taskCollection.UpdateMany(context.Background(), taskFilter, update)
+
+	if err != nil {
+		return err
 	}
 
 	return nil
