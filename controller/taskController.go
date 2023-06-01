@@ -353,46 +353,27 @@ func (tc *TaskController) HandleGetTasks(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	classTitle := chi.URLParam(r, "classTitle")
-	if classTitle == "" {
-		log.Println("HandleGetTask: Path variable is empty")
-		log.Println("HandleGetTasks: Getting tasks with status 3")
-		// Get tasks with status 3
-		classID, err := tc.GetClassIdByClassTitle("1.N")
-		if err != nil {
-			util.WriteErrorResponse(w, 500, "Failed to get class id")
-			return
-		}
-		tasks, err := tc.GetTasksWithStatus3(*classID)
-		if err != nil {
-			log.Println("HandleGetTasks: Failed to get tasks")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		log.Println("HandleGetTasks: got tasks= ", tasks)
 
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(tasks); err != nil {
-			log.Println("HandleGetTasks: Failed to write tasks to body, tasks= ", tasks)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		log.Println("HandleGetTasks: Tasks sent successfully")
+	if classTitle == "" {
+		log.Println("HandleGetTask: Path variable is empty. Using default '1.N'")
+		classTitle = "1.N"
 	}
 
 	log.Println("HandleGetTask: Path variable is =", classTitle)
-	log.Println("HandleGetTasks: Getting tasks with status 3")
-	// Get tasks with status 3
+
 	classID, err := tc.GetClassIdByClassTitle(classTitle)
 	if err != nil {
 		util.WriteErrorResponse(w, 500, "Failed to get class id")
 		return
 	}
+
 	tasks, err := tc.GetTasksWithStatus3(*classID)
 	if err != nil {
 		log.Println("HandleGetTasks: Failed to get tasks")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	log.Println("HandleGetTasks: got tasks= ", tasks)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -402,7 +383,6 @@ func (tc *TaskController) HandleGetTasks(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	log.Println("HandleGetTasks: Tasks sent successfully")
-
 }
 func (tc *TaskController) GetUserRole(username string) (string, error) {
 	log.Println("Function GetUserRole called")
