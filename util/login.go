@@ -51,37 +51,37 @@ func TeacherLogin(functionName string, db *mongo.Client, ts *token.Storage, w ht
 }
 
 func StudentLogin(functionName string, db *mongo.Client, ts *token.Storage, w http.ResponseWriter, r *http.Request) (string, error) {
-	log.Println("Function ", functionName, " called")
+	log.Println("Function StudentLogin called")
 
-	log.Println(functionName, ":getting suth header")
+	log.Println("StudentLogin:getting suth header")
 	authHeader, err := getAuthHeader(w, r)
 	if err != nil {
 		return "", err
 	}
-	log.Println(functionName, ":got auth header= ", authHeader)
+	log.Println("StudentLogin:got auth header= ", authHeader)
 
-	log.Println(functionName, ":getting token")
+	log.Println("StudentLogin:getting token")
 	userToken := getToken(authHeader)
-	log.Println(functionName, ":token=", userToken)
+	log.Println("StudentLogin:token=", userToken)
 
-	log.Println(functionName, ":getting username from token")
+	log.Println("StudentLogin:getting username from token")
 	username, err := getUsernameFromToken(userToken, ts, w)
 	if err != nil {
 		return "", err
 	}
-	log.Println(functionName, ":username= ", username, " from token= ", userToken)
+	log.Println("StudentLogin:username= ", username, " from token= ", userToken)
 
-	log.Println(functionName, ":getting role from username")
+	log.Println("StudentLogin:getting role from username")
 	role, err := getUserRoleFromUsername(username, w, db)
 	if err != nil {
 		return "", err
 	}
-	log.Println(functionName, ":role= ", role, " username= ", username)
+	log.Println("StudentLogin:role= ", role, " username= ", username)
 
-	log.Println(functionName, ":checking if role is teacher")
+	log.Println("StudentLogin:checking if role is student")
 	err = checkStudentRole(role, w, username)
 	if err != nil {
-		log.Println(functionName, ":username= ", username, " checked role is teacher,role= ", role)
+		log.Println("StudentLogin:username= ", username, " checked role is teacher,role= ", role)
 		return "", err
 	}
 	return username, nil
