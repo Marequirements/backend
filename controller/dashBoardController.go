@@ -198,6 +198,7 @@ func (dc *DashBoardController) HandleStudentDashboard(w http.ResponseWriter, r *
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		return
 	}
 	log.Println("HandleStudentDashboard: Path variable= ", SubjTitleURL)
 	response := &StudentDashboardResponse{}
