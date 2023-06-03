@@ -55,6 +55,7 @@ func main() {
 	router.Delete("/student", uc.HandleDeleteStudent)
 	router.Get("/student/{classTitle}", uc.HandleGetStudentsFromClass)
 
+	router.Get("/subject/{classTitle}", subjectc.HandleGetTeacherSubjects)
 	router.Post("/subject", subjectc.HandleNewSubject)
 	router.Delete("/subject", subjectc.HandleDeleteSubject)
 
