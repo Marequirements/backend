@@ -112,6 +112,21 @@ func (tc *TaskController) HandleAddTask(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	//checks if entered deadline is after current day
+	deadlineTime, err := time.Parse("2006-01-02", req.Deadline)
+	if err != nil {
+		util.WriteErrorResponse(w, 400, "Invalid deadline format. Use YYYY-MM-dd")
+		return
+	}
+
+	currentTime := time.Now().UTC()
+	nextDay := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day()+1, 0, 0, 0, 0, currentTime.Location())
+
+	if deadlineTime.Before(nextDay) {
+		util.WriteErrorResponse(w, 400, "Deadline should be after the current day")
+		return
+	}
+
 	log.Println("HandleAddTask: getting user id of user= ", username)
 	userID, err := tc.GetIdByUsername(username)
 	if err != nil {
