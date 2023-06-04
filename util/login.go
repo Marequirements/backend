@@ -50,7 +50,7 @@ func TeacherLogin(functionName string, db *mongo.Client, ts *token.Storage, w ht
 	return username, nil
 }
 
-func StudentLogin(functionName string, db *mongo.Client, ts *token.Storage, w http.ResponseWriter, r *http.Request) (string, error) {
+func StudentLogin(db *mongo.Client, ts *token.Storage, w http.ResponseWriter, r *http.Request) (string, error) {
 	log.Println("Function StudentLogin called")
 
 	log.Println("StudentLogin:getting suth header")
@@ -92,7 +92,7 @@ func getAuthHeader(w http.ResponseWriter, r *http.Request) (string, error) {
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
 		log.Println("getAuthHeader: Failed to get auth header= ", authHeader)
-		WriteErrorResponse(w, http.StatusBadRequest, "Authorization header not provided")
+		WriteErrorResponse(w, http.StatusBadRequest, "Could not get token parameter")
 		return "", fmt.Errorf("failed to get authHeader")
 	}
 	log.Println("getAuthHeader: Got authHeader= ", authHeader)
