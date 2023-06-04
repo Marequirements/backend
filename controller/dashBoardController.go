@@ -118,7 +118,7 @@ func (dc *DashBoardController) HandleTeacherDashBoard(w http.ResponseWriter, r *
 }
 
 func (dc *DashBoardController) HandleStudentDashboard(w http.ResponseWriter, r *http.Request) {
-	username, err := util.StudentLogin("HandleStudentDashboard", dc.db, dc.ts, w, r)
+	username, err := util.StudentLogin(dc.db, dc.ts, w, r)
 	if err != nil {
 		return
 	}
