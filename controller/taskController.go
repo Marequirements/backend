@@ -240,6 +240,7 @@ func (tc *TaskController) HandleDeleteTask(w http.ResponseWriter, r *http.Reques
 	}
 
 	log.Println("HandleDeleteTask: Task deleted successfully")
+	w.WriteHeader(204)
 }
 
 func (tc *TaskController) GetClassTask(class primitive.ObjectID, teacher primitive.ObjectID) ([]model.ClassTasks, error) {
