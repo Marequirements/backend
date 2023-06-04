@@ -46,7 +46,6 @@ type StudentDashboardResponse struct {
 func (dc *DashBoardController) HandleTeacherDashBoard(w http.ResponseWriter, r *http.Request) {
 	_, err := util.TeacherLogin("HandleTeacherDashBoard", dc.db, dc.ts, w, r)
 	if err != nil {
-		util.WriteErrorResponse(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -115,6 +114,83 @@ func (dc *DashBoardController) HandleTeacherDashBoard(w http.ResponseWriter, r *
 
 	log.Println("HandleTeacherDashBoard: Sending response:", resp)
 	util.WriteSuccessResponse(w, http.StatusOK, resp)
+}
+
+// allowed status numbers{1,2,3,4}
+func (dc *DashBoardController) HandleStatusChange(w http.ResponseWriter, r *http.Request) {
+	username, err := util.StudentLogin(dc.db, dc.ts, w, r)
+	if err != nil {
+		return
+	}
+
+	var task model.UpdateStatusTask
+
+	log.Println("HandleStatusChange:Decoding request body")
+	err = json.NewDecoder(r.Body).Decode(&task)
+	if err != nil {
+		log.Println("HandleStatusChange: Failed to decode body")
+		util.WriteErrorResponse(w, 400, "Wrong JSON format")
+		return
+	}
+	if task.ID == "" {
+		log.Println("HandleStatusChange: task id not in body")
+		util.WriteErrorResponse(w, 400, "Wrong JSON format")
+		return
+	}
+
+	log.Println("HandleStatusChange: Validating format of task id")
+	taskID, err := primitive.ObjectIDFromHex(task.ID)
+	if err != nil {
+		log.Println("HandleStatusChange: Failed to get taskID from JSON")
+		util.WriteErrorResponse(w, 400, "wrong taskID format")
+		return
+	}
+	//if task.ID.IsZero() {
+	//	log.Println("HandleStatusChange: Failed to get taskID from JSON")
+	//	util.WriteErrorResponse(w, 400, "wrong taskID format")
+	//	return
+	//}
+
+	log.Println("HandleStatusChange: Checking if task exist in database")
+	exist := dc.TaskExist(taskID)
+	if !exist {
+		log.Println("HandleStatusChange: Task not in database")
+		util.WriteErrorResponse(w, 404, " taskID not in database")
+		return
+	}
+
+	log.Println("HandleStatusChange: Converting status to int and validating the value")
+	status, err := strconv.Atoi(task.Status)
+	if err != nil {
+		log.Println("HandleStatusChange: Failed to convert status to int")
+		util.WriteErrorResponse(w, 400, "Wrong status code")
+		return
+	}
+
+	if status < 1 || status > 4 {
+		log.Println("HandleStatusChange: Incorrect status code", status)
+		util.WriteErrorResponse(w, 400, "Wrong status code")
+		return
+	}
+
+	log.Println("HandleStatusChange: Getting student id")
+	studentID, err := dc.GetIdByUsername(username)
+	if err != nil {
+		log.Println("HandleStatusChange: Studedent id not found in database")
+		util.WriteErrorResponse(w, 500, "Failed to get student id")
+		return
+	}
+
+	log.Println("HandleStatusChange: Updating status")
+	err = dc.ChangeStatus(taskID, *studentID, task.Status)
+	if err != nil {
+		log.Println("HandleStatusChange: Failed to update the status")
+		w.WriteHeader(500)
+		return
+	}
+
+	w.WriteHeader(204)
+	log.Println("HandleStatusChange: Status updated successfully")
 }
 
 func (dc *DashBoardController) HandleStudentDashboard(w http.ResponseWriter, r *http.Request) {
@@ -379,4 +455,46 @@ func (dc *DashBoardController) SubjectExists(title string) (bool, primitive.Obje
 	log.Println("SubjectExists: Failed to find subject =", title)
 	log.Println("SubjectExists: Returned false")
 	return false, primitive.NilObjectID
+}
+
+func (dc *DashBoardController) TaskExist(taskID primitive.ObjectID) bool {
+	log.Println("Function TaskExist called")
+	taskCollection := dc.db.Database("BrainBoard").Collection("task")
+
+	filter := bson.M{"_id": taskID}
+
+	n, err := taskCollection.CountDocuments(context.Background(), filter)
+	if err != nil {
+		log.Println("TaskExist: FAiled to execute querry")
+	}
+	if n == 0 {
+		return false
+	}
+	return true
+}
+
+func (dc *DashBoardController) ChangeStatus(taskID primitive.ObjectID, studentID primitive.ObjectID, status string) error {
+	log.Println("Function ChangeStatus called")
+	taskCollection := dc.db.Database("BrainBoard").Collection("task")
+
+	filter := bson.M{
+		"_id":                taskID,
+		"students.studentid": studentID,
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			"students.$.status": status,
+		},
+	}
+
+	log.Println("ChangeStatus: Updating status code for task")
+	_, err := taskCollection.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		log.Println("ChangeStatus: Failed to update status for task= ", taskID, " student= ", studentID)
+		return err
+	}
+
+	log.Println("ChangeStatus: Status for student updated")
+	return nil
 }
