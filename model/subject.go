@@ -21,3 +21,6 @@ type FormSubjects struct {
 	Title string `json:"title" bson:"title"`
 	Class string `json:"class" bson:"class"`
 }
+type TeacherSubject struct {
+	Title string `json:"title" bson:"title"`
+}

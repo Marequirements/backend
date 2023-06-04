@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/go-chi/chi/v5"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -22,6 +23,48 @@ type SubjectController struct {
 
 func NewSubjectController(db *mongo.Client, ts *token.Storage, uc *StudentController) *SubjectController {
 	return &SubjectController{db: db, ts: ts, uc: uc}
+}
+
+func (sc *SubjectController) HandleGetTeacherSubjects(w http.ResponseWriter, r *http.Request) {
+	username, err := util.TeacherLogin("HandleGetFormSubjects", sc.db, sc.ts, w, r)
+	if err != nil {
+		return
+	}
+
+	log.Println("HandleGetTeacherSubjects: getting teacher id")
+	teacherID, err := sc.GetTeacherIDByUsername(username)
+	if err != nil {
+		util.WriteErrorResponse(w, 500, "Failed to get teacherID")
+		return
+	}
+
+	log.Println("HandleGetTeacherSubjects: Got teacher id")
+
+	log.Println("HandleGetTeacherSubjects: getting path variable")
+	urlClassTitle := chi.URLParam(r, "classTitle")
+	if urlClassTitle == "" {
+		urlClassTitle = "1.N"
+	}
+
+	classID, err := sc.GetClassIDByTitle(urlClassTitle)
+	if err != nil {
+		if err.Error() == "class not in database" {
+			util.WriteErrorResponse(w, 404, "Class not in database")
+			return
+		}
+		util.WriteErrorResponse(w, 500, "Failed to get class id of class")
+		return
+	}
+
+	result, err := sc.GetSubjectsByClass(teacherID, classID)
+	if err != nil {
+		log.Println("HandleGetTeacherSubjects: Failed to get teacher subjects for class=", urlClassTitle)
+		util.WriteErrorResponse(w, 500, "Failed to get subjects")
+		return
+	}
+
+	util.WriteSuccessResponse(w, 200, result)
+	log.Println("HandleGetTeacherSubjects: returned subjects= ", result)
 }
 
 func (sc *SubjectController) HandleGetFormSubjects(w http.ResponseWriter, r *http.Request) {
@@ -253,6 +296,10 @@ func (sc *SubjectController) GetClassIDByTitle(classTitle string) (primitive.Obj
 
 	err := collection.FindOne(context.Background(), filter).Decode(&class)
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Println("GetClassIDByTitle: Class not in database,class =", classTitle)
+			return primitive.NilObjectID, fmt.Errorf("class not in database")
+		}
 		log.Println("GetClassIDByTitle: Fail class= ", classTitle, " not found")
 		return primitive.NilObjectID, err
 	}
@@ -318,4 +365,30 @@ func (sc *SubjectController) GetAllSubjects(teacherID primitive.ObjectID) []mode
 	}
 
 	return results
+}
+
+func (sc *SubjectController) GetSubjectsByClass(teacherID primitive.ObjectID, clasID primitive.ObjectID) ([]model.TeacherSubject, error) {
+	log.Println("Func GetSubjectsByClass called")
+
+	subjectCollection := sc.db.Database("BrainBoard").Collection("subject")
+
+	filter := bson.M{"teacher": teacherID, "class": clasID}
+
+	cur, err := subjectCollection.Find(context.Background(), filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(context.Background())
+
+	var subjects []model.TeacherSubject
+	for cur.Next(context.Background()) {
+		var subject model.TeacherSubject
+		err := cur.Decode(&subject)
+		if err != nil {
+			return nil, err
+		}
+
+		subjects = append(subjects, subject)
+	}
+	return subjects, nil
 }
