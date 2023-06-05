@@ -502,7 +502,7 @@ func (sc *StudentController) HandleGetStudentsFromClass(w http.ResponseWriter, r
 	}
 	log.Println("Function HandleGetStudentsFromClass called")
 
-	_, err := util.TeacherLogin("HandleGetStudentsFromClass", sc.db, sc.ts, w, r)
+	_, err = util.TeacherLogin("HandleGetStudentsFromClass", sc.db, sc.ts, w, r)
 	if err != nil {
 		return
 	}
