@@ -28,8 +28,16 @@ func NewTaskController(db *mongo.Client, ts *token.Storage, uc *StudentControlle
 	return &TaskController{db: db, ts: ts, uc: uc}
 }
 
+func (tc *TaskController) HandleReviewDone(w http.ResponseWriter, r *http.Request) {
+	_, err := util.TeacherLogin(tc.db, tc.ts, w, r)
+	if err != nil {
+		return
+	}
+
+}
+
 func (tc *TaskController) HandleTeacherTasks(w http.ResponseWriter, r *http.Request) {
-	username, err := util.TeacherLogin("HandleTeacherTasks", tc.db, tc.ts, w, r)
+	username, err := util.TeacherLogin(tc.db, tc.ts, w, r)
 	if err != nil {
 		return
 	}
@@ -81,7 +89,7 @@ func (tc *TaskController) HandleTeacherTasks(w http.ResponseWriter, r *http.Requ
 }
 
 func (tc *TaskController) HandleAddTask(w http.ResponseWriter, r *http.Request) {
-	username, err := util.TeacherLogin("HandleAddTask", tc.db, tc.ts, w, r)
+	username, err := util.TeacherLogin(tc.db, tc.ts, w, r)
 	if err != nil {
 		return
 	}
@@ -198,7 +206,7 @@ func (tc *TaskController) HandleAddTask(w http.ResponseWriter, r *http.Request) 
 
 func (tc *TaskController) HandleDeleteTask(w http.ResponseWriter, r *http.Request) {
 	log.Println("HandleDeleteTask: Function called")
-	_, err := util.TeacherLogin("HandleDeleteTask", tc.db, tc.ts, w, r)
+	_, err := util.TeacherLogin(tc.db, tc.ts, w, r)
 	if err != nil {
 		return
 	}
@@ -412,7 +420,7 @@ func (tc *TaskController) HandleGetTasks(w http.ResponseWriter, r *http.Request)
 	log.Println("HandleGetTasks: Got token= ", authToken)
 
 	log.Println("HandleGetTasks: Getting username from token ", authToken)
-	_, err := util.TeacherLogin("HandleGetTasks", tc.db, tc.ts, w, r)
+	_, err := util.TeacherLogin(tc.db, tc.ts, w, r)
 	if err != nil {
 		return
 	}

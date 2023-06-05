@@ -44,7 +44,7 @@ type StudentDashboardResponse struct {
 }
 
 func (dc *DashBoardController) HandleTeacherDashBoard(w http.ResponseWriter, r *http.Request) {
-	_, err := util.TeacherLogin("HandleTeacherDashBoard", dc.db, dc.ts, w, r)
+	_, err := util.TeacherLogin(dc.db, dc.ts, w, r)
 	if err != nil {
 		util.WriteErrorResponse(w, http.StatusUnauthorized, "Unauthorized")
 		return

@@ -26,7 +26,7 @@ func NewSubjectController(db *mongo.Client, ts *token.Storage, uc *StudentContro
 }
 
 func (sc *SubjectController) HandleGetTeacherSubjects(w http.ResponseWriter, r *http.Request) {
-	username, err := util.TeacherLogin("HandleGetFormSubjects", sc.db, sc.ts, w, r)
+	username, err := util.TeacherLogin(sc.db, sc.ts, w, r)
 	if err != nil {
 		return
 	}
@@ -68,7 +68,7 @@ func (sc *SubjectController) HandleGetTeacherSubjects(w http.ResponseWriter, r *
 }
 
 func (sc *SubjectController) HandleGetFormSubjects(w http.ResponseWriter, r *http.Request) {
-	username, err := util.TeacherLogin("HandleGetFormSubjects", sc.db, sc.ts, w, r)
+	username, err := util.TeacherLogin(sc.db, sc.ts, w, r)
 	if err != nil {
 		return
 	}
@@ -85,7 +85,7 @@ func (sc *SubjectController) HandleGetFormSubjects(w http.ResponseWriter, r *htt
 }
 
 func (sc *SubjectController) HandleNewSubject(w http.ResponseWriter, r *http.Request) {
-	username, err := util.TeacherLogin("HandleNewSubject", sc.db, sc.ts, w, r)
+	username, err := util.TeacherLogin(sc.db, sc.ts, w, r)
 	if err != nil {
 		return
 	}
@@ -153,7 +153,7 @@ func (sc *SubjectController) HandleNewSubject(w http.ResponseWriter, r *http.Req
 }
 
 func (sc *SubjectController) HandleDeleteSubject(w http.ResponseWriter, r *http.Request) {
-	_, err := util.TeacherLogin("HandleDeleteSubject", sc.db, sc.ts, w, r)
+	_, err := util.TeacherLogin(sc.db, sc.ts, w, r)
 	if err != nil {
 		return
 	}

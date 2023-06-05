@@ -204,7 +204,7 @@ func (sc *StudentController) HandleLogout(w http.ResponseWriter, r *http.Request
 }
 
 func (sc *StudentController) HandleAddStudent(w http.ResponseWriter, r *http.Request) {
-	_, err := util.TeacherLogin("HandleAddStudent", sc.db, sc.ts, w, r)
+	_, err := util.TeacherLogin(sc.db, sc.ts, w, r)
 	if err != nil {
 		return
 	}
@@ -290,7 +290,7 @@ func (sc *StudentController) GetUserRole(username string) (string, error) {
 }
 
 func (sc *StudentController) HandleDeleteStudent(w http.ResponseWriter, r *http.Request) {
-	_, err := util.TeacherLogin("HandleDeleteStudent", sc.db, sc.ts, w, r)
+	_, err := util.TeacherLogin(sc.db, sc.ts, w, r)
 	if err != nil {
 		return
 	}
@@ -366,7 +366,7 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 }
 
 func (sc *StudentController) HandleEditStudent(w http.ResponseWriter, r *http.Request) {
-	_, err := util.TeacherLogin("HandleEditStudent", sc.db, sc.ts, w, r)
+	_, err := util.TeacherLogin(sc.db, sc.ts, w, r)
 	if err != nil {
 		return
 	}
@@ -498,7 +498,7 @@ func (sc *StudentController) GetClassIDByTitle(classTitle string) (primitive.Obj
 func (sc *StudentController) HandleGetStudentsFromClass(w http.ResponseWriter, r *http.Request) {
 	log.Println("Function HandleGetStudentsFromClass called")
 
-	_, err := util.TeacherLogin("HandleGetStudentsFromClass", sc.db, sc.ts, w, r)
+	_, err := util.TeacherLogin(sc.db, sc.ts, w, r)
 	if err != nil {
 		return
 	}
