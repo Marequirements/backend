@@ -36,7 +36,6 @@ type TeacherDashboardResponse struct {
 type StudentDashboardResponse struct {
 	Subjects     []string                     `json:"subjects,omitempty"`
 	SubjectTasks string                       `json:"subjectTasks,omitempty"`
-	Backlog      []model.StudentDashboardTask `json:"backlog"`
 	Todo         []model.StudentDashboardTask `json:"todo"`
 	InProgress   []model.StudentDashboardTask `json:"inProgress"`
 	Review       []model.StudentDashboardTask `json:"review"`
@@ -248,7 +247,6 @@ func (dc *DashBoardController) HandleStudentDashboard(w http.ResponseWriter, r *
 		response := &StudentDashboardResponse{
 			Subjects:     subjectTitles,
 			SubjectTasks: subjectTitles[0],
-			Backlog:      make([]model.StudentDashboardTask, 0),
 			Todo:         make([]model.StudentDashboardTask, 0),
 			InProgress:   make([]model.StudentDashboardTask, 0),
 			Review:       make([]model.StudentDashboardTask, 0),
@@ -401,8 +399,7 @@ func (dc *DashBoardController) SortTasks(response *StudentDashboardResponse, tas
 		for _, student := range task.Students {
 			if student.StudentID == *studentID {
 				switch student.Status {
-				case "0":
-					response.Backlog = append(response.Backlog, task)
+
 				case "1":
 					response.Todo = append(response.Todo, task)
 				case "2":
