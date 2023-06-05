@@ -13,75 +13,75 @@ import (
 )
 
 // TeacherLogin returns username, if returns error just end the function that called this one with return
-func TeacherLogin(functionName string, db *mongo.Client, ts *token.Storage, w http.ResponseWriter, r *http.Request) (string, error) {
-	log.Println("Function ", functionName, " called")
+func TeacherLogin(db *mongo.Client, ts *token.Storage, w http.ResponseWriter, r *http.Request) (string, error) {
+	log.Println("Function TeacherLogin called")
 
-	log.Println(functionName, ":getting suth header")
+	log.Println("TeacherLogin:getting suth header")
 	authHeader, err := getAuthHeader(w, r)
 	if err != nil {
 		return "", err
 	}
-	log.Println(functionName, ":got auth header= ", authHeader)
+	log.Println("TeacherLogin:got auth header= ", authHeader)
 
-	log.Println(functionName, ":getting token")
+	log.Println("TeacherLogin:getting token")
 	userToken := getToken(authHeader)
-	log.Println(functionName, ":token=", userToken)
+	log.Println("TeacherLogin:token=", userToken)
 
-	log.Println(functionName, ":getting username from token")
+	log.Println("TeacherLogin:getting username from token")
 	username, err := getUsernameFromToken(userToken, ts, w)
 	if err != nil {
 		return "", err
 	}
-	log.Println(functionName, ":username= ", username, " from token= ", userToken)
+	log.Println("TeacherLogin:username= ", username, " from token= ", userToken)
 
-	log.Println(functionName, ":getting role from username")
+	log.Println("TeacherLogin:getting role from username")
 	role, err := getUserRoleFromUsername(username, w, db)
 	if err != nil {
 		return "", err
 	}
-	log.Println(functionName, ":role= ", role, " username= ", username)
+	log.Println("TeacherLogin:role= ", role, " username= ", username)
 
-	log.Println(functionName, ":checking if role is teacher")
+	log.Println("TeacherLogin:checking if role is teacher")
 	err = checkTeacherRole(role, w, username)
 	if err != nil {
-		log.Println(functionName, ":username= ", username, " checked role is teacher,role= ", role)
+		log.Println("TeacherLogin:username= ", username, " checked role is teacher,role= ", role)
 		return "", err
 	}
 	return username, nil
 }
 
-func StudentLogin(functionName string, db *mongo.Client, ts *token.Storage, w http.ResponseWriter, r *http.Request) (string, error) {
-	log.Println("Function ", functionName, " called")
+func StudentLogin(db *mongo.Client, ts *token.Storage, w http.ResponseWriter, r *http.Request) (string, error) {
+	log.Println("Function StudentLogin called")
 
-	log.Println(functionName, ":getting suth header")
+	log.Println("StudentLogin:getting suth header")
 	authHeader, err := getAuthHeader(w, r)
 	if err != nil {
 		return "", err
 	}
-	log.Println(functionName, ":got auth header= ", authHeader)
+	log.Println("StudentLogin:got auth header= ", authHeader)
 
-	log.Println(functionName, ":getting token")
+	log.Println("StudentLogin:getting token")
 	userToken := getToken(authHeader)
-	log.Println(functionName, ":token=", userToken)
+	log.Println("StudentLogin:token=", userToken)
 
-	log.Println(functionName, ":getting username from token")
+	log.Println("StudentLogin:getting username from token")
 	username, err := getUsernameFromToken(userToken, ts, w)
 	if err != nil {
 		return "", err
 	}
-	log.Println(functionName, ":username= ", username, " from token= ", userToken)
+	log.Println("StudentLogin:username= ", username, " from token= ", userToken)
 
-	log.Println(functionName, ":getting role from username")
+	log.Println("StudentLogin:getting role from username")
 	role, err := getUserRoleFromUsername(username, w, db)
 	if err != nil {
 		return "", err
 	}
-	log.Println(functionName, ":role= ", role, " username= ", username)
+	log.Println("StudentLogin:role= ", role, " username= ", username)
 
-	log.Println(functionName, ":checking if role is teacher")
+	log.Println("StudentLogin:checking if role is student")
 	err = checkStudentRole(role, w, username)
 	if err != nil {
-		log.Println(functionName, ":username= ", username, " checked role is teacher,role= ", role)
+		log.Println("StudentLogin:username= ", username, " checked role is teacher,role= ", role)
 		return "", err
 	}
 	return username, nil
@@ -92,7 +92,7 @@ func getAuthHeader(w http.ResponseWriter, r *http.Request) (string, error) {
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
 		log.Println("getAuthHeader: Failed to get auth header= ", authHeader)
-		WriteErrorResponse(w, http.StatusBadRequest, "Authorization header not provided")
+		WriteErrorResponse(w, http.StatusBadRequest, "Could not get token parameter")
 		return "", fmt.Errorf("failed to get authHeader")
 	}
 	log.Println("getAuthHeader: Got authHeader= ", authHeader)

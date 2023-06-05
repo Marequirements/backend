@@ -48,6 +48,7 @@ func main() {
 
 	router.Get("/teacher/dashboard", dashBoardController.HandleTeacherDashBoard)
 	router.Get("/student/dashboard", dashBoardController.HandleStudentDashboard)
+	router.Put("/student/dashboard/change-status", dashBoardController.HandleStatusChange)
 	router.Get("/student/dashboard/{subjectTitle}", dashBoardController.HandleStudentDashboard)
 
 	router.Post("/student", uc.HandleAddStudent)
@@ -55,6 +56,7 @@ func main() {
 	router.Delete("/student", uc.HandleDeleteStudent)
 	router.Get("/student/{classTitle}", uc.HandleGetStudentsFromClass)
 
+	router.Get("/subject/{classTitle}", subjectc.HandleGetTeacherSubjects)
 	router.Post("/subject", subjectc.HandleNewSubject)
 	router.Delete("/subject", subjectc.HandleDeleteSubject)
 

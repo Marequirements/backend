@@ -28,8 +28,16 @@ func NewTaskController(db *mongo.Client, ts *token.Storage, uc *StudentControlle
 	return &TaskController{db: db, ts: ts, uc: uc}
 }
 
+func (tc *TaskController) HandleReviewDone(w http.ResponseWriter, r *http.Request) {
+	_, err := util.TeacherLogin(tc.db, tc.ts, w, r)
+	if err != nil {
+		return
+	}
+
+}
+
 func (tc *TaskController) HandleTeacherTasks(w http.ResponseWriter, r *http.Request) {
-	username, err := util.TeacherLogin("HandleTeacherTasks", tc.db, tc.ts, w, r)
+	username, err := util.TeacherLogin(tc.db, tc.ts, w, r)
 	if err != nil {
 		return
 	}
@@ -81,7 +89,7 @@ func (tc *TaskController) HandleTeacherTasks(w http.ResponseWriter, r *http.Requ
 }
 
 func (tc *TaskController) HandleAddTask(w http.ResponseWriter, r *http.Request) {
-	_, err := util.TeacherLogin("HandleAddTask", tc.db, tc.ts, w, r)
+	username, err := util.TeacherLogin(tc.db, tc.ts, w, r)
 	if err != nil {
 		return
 	}
@@ -112,6 +120,68 @@ func (tc *TaskController) HandleAddTask(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	//checks if entered deadline is after current day
+	deadlineTime, err := time.Parse("2006-01-02", req.Deadline)
+	if err != nil {
+		util.WriteErrorResponse(w, 400, "Invalid deadline format. Use YYYY-MM-dd")
+		return
+	}
+
+	currentTime := time.Now().UTC()
+	nextDay := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day()+1, 0, 0, 0, 0, currentTime.Location())
+
+	if deadlineTime.Before(nextDay) {
+		util.WriteErrorResponse(w, 400, "Deadline should be after the current day")
+		return
+	}
+
+	log.Println("HandleAddTask: getting user id of user= ", username)
+	userID, err := tc.GetIdByUsername(username)
+	if err != nil {
+		log.Println("HandleAddTask: username=", username, "not in database")
+	}
+
+	// Get subject details
+	var subject model.Subject
+
+	log.Println("HandleAddTask: getting subject id of subject= ", req.Subject)
+	subjectID, err := tc.GetSubjectIdBySubjectTitle(req.Subject)
+	if err != nil {
+		if err.Error() == "subject does not exist" {
+			util.WriteErrorResponse(w, 404, "Subject does not exist")
+			return
+		}
+		util.WriteErrorResponse(w, 500, "Invalid subject ID")
+		return
+	}
+
+	subjectCollection := tc.db.Database("BrainBoard").Collection("subject")
+	filter := bson.M{"_id": subjectID}
+
+	err = subjectCollection.FindOne(context.Background(), filter).Decode(&subject)
+	if err != nil {
+		util.WriteErrorResponse(w, 500, "Invalid subject ID")
+		return
+	}
+	//checking if class exists
+	_, err = tc.GetClassIdByClassTitle(req.Class)
+	if err != nil {
+		if err.Error() == "class does not exist" {
+			util.WriteErrorResponse(w, 404, "Class does not exist")
+			return
+		}
+		util.WriteErrorResponse(w, 500, "Invalid class ID")
+		return
+	}
+
+	log.Println("HandleAddTask: Checking logged in user id= ", userID, " and subject teacher id= ", subject.Teacher)
+	// Check if teacher is associated with the subject
+	if subject.Teacher != *userID {
+		log.Println("HandleAddTask: Teacher not associated with the subject")
+		util.WriteErrorResponse(w, 403, "Teacher is not owner of subject")
+		return
+	}
+
 	log.Println("HandleAddTask: Adding task to database, task")
 	err = tc.AddTask(req.Title, req.Description, req.Deadline, req.Subject, req.Class)
 	if err != nil {
@@ -136,7 +206,7 @@ func (tc *TaskController) HandleAddTask(w http.ResponseWriter, r *http.Request) 
 
 func (tc *TaskController) HandleDeleteTask(w http.ResponseWriter, r *http.Request) {
 	log.Println("HandleDeleteTask: Function called")
-	_, err := util.TeacherLogin("HandleDeleteTask", tc.db, tc.ts, w, r)
+	_, err := util.TeacherLogin(tc.db, tc.ts, w, r)
 	if err != nil {
 		return
 	}
@@ -178,6 +248,7 @@ func (tc *TaskController) HandleDeleteTask(w http.ResponseWriter, r *http.Reques
 	}
 
 	log.Println("HandleDeleteTask: Task deleted successfully")
+	w.WriteHeader(204)
 }
 
 func (tc *TaskController) GetClassTask(class primitive.ObjectID, teacher primitive.ObjectID) ([]model.ClassTasks, error) {
@@ -349,7 +420,7 @@ func (tc *TaskController) HandleGetTasks(w http.ResponseWriter, r *http.Request)
 	log.Println("HandleGetTasks: Got token= ", authToken)
 
 	log.Println("HandleGetTasks: Getting username from token ", authToken)
-	_, err := util.TeacherLogin("HandleGetTasks", tc.db, tc.ts, w, r)
+	_, err := util.TeacherLogin(tc.db, tc.ts, w, r)
 	if err != nil {
 		return
 	}
@@ -613,7 +684,7 @@ func (tc *TaskController) AddTask(title string, description string, deadline str
 	date := primitive.NewDateTimeFromTime(t)
 	var studentStatus []model.StudentStatus
 	for _, user := range users {
-		studentStatus = append(studentStatus, model.StudentStatus{StudentID: user.Id, Status: "0"})
+		studentStatus = append(studentStatus, model.StudentStatus{StudentID: user.Id, Status: "1"})
 	}
 
 	task := model.NewTask{

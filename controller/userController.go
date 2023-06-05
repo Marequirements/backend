@@ -204,7 +204,7 @@ func (sc *StudentController) HandleLogout(w http.ResponseWriter, r *http.Request
 }
 
 func (sc *StudentController) HandleAddStudent(w http.ResponseWriter, r *http.Request) {
-	_, err := util.TeacherLogin("HandleAddStudent", sc.db, sc.ts, w, r)
+	_, err := util.TeacherLogin(sc.db, sc.ts, w, r)
 	if err != nil {
 		return
 	}
@@ -290,7 +290,7 @@ func (sc *StudentController) GetUserRole(username string) (string, error) {
 }
 
 func (sc *StudentController) HandleDeleteStudent(w http.ResponseWriter, r *http.Request) {
-	_, err := util.TeacherLogin("HandleDeleteStudent", sc.db, sc.ts, w, r)
+	_, err := util.TeacherLogin(sc.db, sc.ts, w, r)
 	if err != nil {
 		return
 	}
@@ -372,7 +372,7 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 }
 
 func (sc *StudentController) HandleEditStudent(w http.ResponseWriter, r *http.Request) {
-	_, err := util.TeacherLogin("HandleEditStudent", sc.db, sc.ts, w, r)
+	_, err := util.TeacherLogin(sc.db, sc.ts, w, r)
 	if err != nil {
 		return
 	}
@@ -513,6 +513,11 @@ func (sc *StudentController) HandleGetStudentsFromClass(w http.ResponseWriter, r
 
 	log.Println("Function HandleGetStudentsFromClass called")
 
+	_, err := util.TeacherLogin(sc.db, sc.ts, w, r)
+	if err != nil {
+		return
+	}
+
 	classTitle := chi.URLParam(r, "classTitle")
 	if classTitle == "" {
 		log.Println("HandleGetStudentsFromClass: classTitle parameter is missing")
@@ -524,7 +529,7 @@ func (sc *StudentController) HandleGetStudentsFromClass(w http.ResponseWriter, r
 	var classDoc struct {
 		ID primitive.ObjectID `bson:"_id"`
 	}
-	err := classCollection.FindOne(context.Background(), bson.M{"name": classTitle}).Decode(&classDoc)
+	err = classCollection.FindOne(context.Background(), bson.M{"name": classTitle}).Decode(&classDoc)
 	if err != nil {
 		log.Println("HandleGetStudentsFromClass: Invalid class title")
 		util.WriteErrorResponse(w, http.StatusBadRequest, "Invalid class title")
