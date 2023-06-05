@@ -496,6 +496,10 @@ func (sc *StudentController) GetClassIDByTitle(classTitle string) (primitive.Obj
 	return class.Id, nil
 }
 func (sc *StudentController) HandleGetStudentsFromClass(w http.ResponseWriter, r *http.Request) {
+	_, err := util.TeacherLogin("HandleGetStudentsFromClass", sc.db, sc.ts, w, r)
+	if err != nil {
+		return
+	}
 	log.Println("Function HandleGetStudentsFromClass called")
 
 	_, err := util.TeacherLogin("HandleGetStudentsFromClass", sc.db, sc.ts, w, r)
