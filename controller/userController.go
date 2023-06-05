@@ -305,6 +305,12 @@ func (sc *StudentController) HandleDeleteStudent(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// Validate the username
+	if body.Username == "" {
+		respondWithError(w, http.StatusBadRequest, "JSON parameters not provided")
+		return
+	}
+
 	// Delete the student from the database
 	err = sc.DeleteStudent(body.Username)
 	if err != nil {
@@ -373,6 +379,14 @@ func (sc *StudentController) HandleEditStudent(w http.ResponseWriter, r *http.Re
 
 	var editRequest model.EditStudentRequest
 	if err := json.NewDecoder(r.Body).Decode(&editRequest); err != nil {
+		respondWithError(w, http.StatusBadRequest, "JSON parameters not provided")
+		return
+	}
+
+	// Check that the fields of the request are not empty, not that they match specific strings.
+	if editRequest.OldStudentUsername == "" || editRequest.NewStudent.Username == "" ||
+		editRequest.NewStudent.Password == "" || editRequest.NewStudent.Name == "" ||
+		editRequest.NewStudent.Surname == "" || editRequest.NewStudent.ClassTitle == "" {
 		respondWithError(w, http.StatusBadRequest, "JSON parameters not provided")
 		return
 	}
@@ -496,6 +510,7 @@ func (sc *StudentController) GetClassIDByTitle(classTitle string) (primitive.Obj
 	return class.Id, nil
 }
 func (sc *StudentController) HandleGetStudentsFromClass(w http.ResponseWriter, r *http.Request) {
+
 	log.Println("Function HandleGetStudentsFromClass called")
 
 	classTitle := chi.URLParam(r, "classTitle")
