@@ -64,3 +64,8 @@ type StudentDashboardTask struct {
 	Deadline    primitive.DateTime `bson:"deadline" json:"deadline"`
 	Students    []StudentStatus    `bson:"students" json:"-"`
 }
+
+type UpdateStatusTask struct {
+	ID     string `json:"taskID,omitempty"`
+	Status string `json:"status,omitempty"`
+}

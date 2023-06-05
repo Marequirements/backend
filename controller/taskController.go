@@ -684,7 +684,7 @@ func (tc *TaskController) AddTask(title string, description string, deadline str
 	date := primitive.NewDateTimeFromTime(t)
 	var studentStatus []model.StudentStatus
 	for _, user := range users {
-		studentStatus = append(studentStatus, model.StudentStatus{StudentID: user.Id, Status: "0"})
+		studentStatus = append(studentStatus, model.StudentStatus{StudentID: user.Id, Status: "1"})
 	}
 
 	task := model.NewTask{
