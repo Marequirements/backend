@@ -478,6 +478,10 @@ func (sc *StudentController) GetClassIDByTitle(classTitle string) (primitive.Obj
 	return class.Id, nil
 }
 func (sc *StudentController) HandleGetStudentsFromClass(w http.ResponseWriter, r *http.Request) {
+	_, err := util.TeacherLogin("HandleGetStudentsFromClass", sc.db, sc.ts, w, r)
+	if err != nil {
+		return
+	}
 	log.Println("Function HandleGetStudentsFromClass called")
 
 	classTitle := chi.URLParam(r, "classTitle")
@@ -491,7 +495,7 @@ func (sc *StudentController) HandleGetStudentsFromClass(w http.ResponseWriter, r
 	var classDoc struct {
 		ID primitive.ObjectID `bson:"_id"`
 	}
-	err := classCollection.FindOne(context.Background(), bson.M{"name": classTitle}).Decode(&classDoc)
+	err = classCollection.FindOne(context.Background(), bson.M{"name": classTitle}).Decode(&classDoc)
 	if err != nil {
 		log.Println("HandleGetStudentsFromClass: Invalid class title")
 		util.WriteErrorResponse(w, http.StatusBadRequest, "Invalid class title")
