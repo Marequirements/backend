@@ -29,11 +29,79 @@ func NewTaskController(db *mongo.Client, ts *token.Storage, uc *StudentControlle
 }
 
 func (tc *TaskController) HandleReviewDone(w http.ResponseWriter, r *http.Request) {
+	log.Println("Function HandleReviewDone called")
 	_, err := util.TeacherLogin(tc.db, tc.ts, w, r)
 	if err != nil {
 		return
 	}
 
+	var req struct {
+		TaskID    string `json:"taskID"`
+		StudentID string `json:"studentID"`
+	}
+
+	log.Println("HandleReviewDone: Decoding body")
+	err = json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		log.Println("HandleReviewDone: Failed to decode body")
+		util.WriteErrorResponse(w, 400, "Wrong JSON format")
+		return
+	}
+
+	if req.TaskID == "" {
+		log.Println("HandleReviewDone: task id not in body")
+		util.WriteErrorResponse(w, 400, "Wrong JSON format")
+		return
+	}
+
+	if req.StudentID == "" {
+		log.Println("HandleReviewDone: idStudentID not in body")
+		util.WriteErrorResponse(w, 400, "Wrong JSON format")
+		return
+	}
+
+	log.Println("HandleReviewDone: Validating format of task id")
+	taskID, err := primitive.ObjectIDFromHex(req.TaskID)
+	if err != nil {
+		log.Println("HandleReviewDone: Failed to get taskID from JSON")
+		util.WriteErrorResponse(w, 400, "wrong taskID format")
+		return
+	}
+
+	log.Println("HandleReviewDone: Validating format of student id")
+	studentID, err := primitive.ObjectIDFromHex(req.StudentID)
+	if err != nil {
+		log.Println("HandleReviewDone: Failed to get studentID from JSON")
+		util.WriteErrorResponse(w, 400, "wrong studentID format")
+		return
+	}
+
+	log.Println("HandleStatusChange: Checking if task exist in database")
+	exist := tc.TaskExists(taskID)
+	if !exist {
+		log.Println("HandleStatusChange: Task not in database")
+		util.WriteErrorResponse(w, 404, " taskID not in database")
+		return
+	}
+
+	log.Println("HandleStatusChange: Checking if user exist in database")
+	exist = tc.UserExists(studentID)
+	if !exist {
+		log.Println("HandleStatusChange: Student not in database")
+		util.WriteErrorResponse(w, 404, " studentID not in database")
+		return
+	}
+
+	log.Println("HandleReviewDone: Changing status of task")
+	err = tc.ChangeStatus(taskID, studentID, "4")
+	if err != nil {
+		log.Println("HandleStatusChange: Failed to update the status")
+		w.WriteHeader(500)
+		return
+	}
+
+	w.WriteHeader(204)
+	log.Println("HandleStatusChange: Status updated successfully")
 }
 
 func (tc *TaskController) HandleTeacherTasks(w http.ResponseWriter, r *http.Request) {
@@ -639,6 +707,16 @@ func (tc *TaskController) TaskExists(id primitive.ObjectID) bool {
 	return count > 0
 }
 
+func (tc *TaskController) UserExists(userID primitive.ObjectID) bool {
+	collection := tc.db.Database("BrainBoard").Collection("user")
+
+	ccount, err := collection.CountDocuments(context.Background(), bson.M{"_id": userID})
+	if err != nil {
+		return false
+	}
+	return ccount > 0
+}
+
 func (tc *TaskController) AddTask(title string, description string, deadline string, subject string, class string) error {
 	log.Println("Function AddTask called")
 	usercollection := tc.db.Database("BrainBoard").Collection("user")
@@ -722,5 +800,31 @@ func (tc *TaskController) DeleteTask(id primitive.ObjectID) error {
 	}
 
 	log.Println("DeleteTask: Task deleted successfully")
+	return nil
+}
+
+func (tc *TaskController) ChangeStatus(taskID primitive.ObjectID, studentID primitive.ObjectID, status string) error {
+	log.Println("Function ChangeStatus called")
+	taskCollection := tc.db.Database("BrainBoard").Collection("task")
+
+	filter := bson.M{
+		"_id":                taskID,
+		"students.studentid": studentID,
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			"students.$.status": status,
+		},
+	}
+
+	log.Println("ChangeStatus: Updating status code for task")
+	_, err := taskCollection.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		log.Println("ChangeStatus: Failed to update status for task= ", taskID, " student= ", studentID)
+		return err
+	}
+
+	log.Println("ChangeStatus: Status for student updated")
 	return nil
 }
