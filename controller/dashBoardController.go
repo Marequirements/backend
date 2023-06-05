@@ -275,10 +275,41 @@ func (dc *DashBoardController) HandleStudentDashboard(w http.ResponseWriter, r *
 		return
 	}
 	log.Println("HandleStudentDashboard: Path variable= ", SubjTitleURL)
-	response := &StudentDashboardResponse{}
 	exists, id := dc.SubjectExists(SubjTitleURL)
 	if exists {
 		if id != primitive.NilObjectID {
+			log.Println("HandleStudentDashboard: Getting subjects by user class")
+			subjects, err := dc.GetSubjectsFromCLassID(student.Class, subjectCollection)
+			if err != nil {
+				util.WriteErrorResponse(w, 500, "Failed to get subjects")
+			}
+			log.Println("HandleStudentDashboard: subjects = ", subjects, " class", student.Class)
+
+			log.Println("HandleStudentDashboard: Sorting Subjects alphabetically")
+			// Sort subjects by title
+			sort.Slice(subjects, func(i, j int) bool {
+				return subjects[i].Title < subjects[j].Title
+			})
+
+			log.Println("HandleStudentDashboard: subject sorted")
+
+			log.Println("HandleStudentDashboard: Extracting subjects titles from subject structs")
+			// Extract subject titles to separate slice
+			subjectTitles := make([]string, len(subjects))
+			for i, s := range subjects {
+				subjectTitles[i] = s.Title
+			}
+			log.Println("HandleStudentDashboard: got titles= ", subjectTitles)
+
+			// Construct response with placeholders for tasks
+			response := &StudentDashboardResponse{
+				Subjects:     subjectTitles,
+				SubjectTasks: SubjTitleURL,
+				Todo:         make([]model.StudentDashboardTask, 0),
+				InProgress:   make([]model.StudentDashboardTask, 0),
+				Review:       make([]model.StudentDashboardTask, 0),
+				Done:         make([]model.StudentDashboardTask, 0),
+			}
 			// Use subjectID here
 			log.Println("SubjectID: ", id.Hex())
 			tasks, err := dc.GetTasksFromUserID(id, student.Id, taskCollection)
