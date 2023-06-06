@@ -439,6 +439,8 @@ func (dc *DashBoardController) SortTasks(response *StudentDashboardResponse, tas
 					response.Review = append(response.Review, task)
 				case "4":
 					response.Done = append(response.Done, task)
+				case "5":
+					response.Todo = append(response.Todo, task)
 				}
 				break
 			}
