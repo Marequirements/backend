@@ -196,7 +196,7 @@ func (sc *SubjectController) HandleDeleteSubject(w http.ResponseWriter, r *http.
 	// Delete the subject from the database
 	err = sc.DeleteSubject(subject)
 	if err != nil {
-		log.Println("HandleDeleteSubject: Failed to delete the subject ", subject.ClassTitle)
+		log.Println("HandleDeleteSubject: Failed to delete the subject ", subject.Title)
 
 		errMsg := "Subject does not exist"
 		util.WriteErrorResponse(w, 404, errMsg)
@@ -240,13 +240,38 @@ func (sc *SubjectController) AddSubject(subject model.NewSubject) error {
 func (sc *SubjectController) DeleteSubject(subject model.NewSubject) error {
 	log.Println("Function DeleteSubject was called")
 
-	collection := sc.db.Database("BrainBoard").Collection("subject")
-	filter := bson.M{"title": subject.Title, "class": subject.Class}
+	log.Println("DeleteSubject: deleting subject from task collection")
+	collection := sc.db.Database("BrainBoard").Collection("task")
+	subjectID, err := sc.GetSubjectIdBySubjectTitle(subject.Title)
+	if err != nil {
+		log.Println("DeleteSubject: Failed to get subject id")
+		return err
+	}
+	filter := bson.M{"class": subject.Class, "subject": subjectID}
+	log.Println("DeleteSubject: Deleting task with subject= ", subject.Title, " in class= ", subject.ClassTitle)
+	type task struct {
+		ID          primitive.ObjectID    `bson:"_id"`
+		Title       string                `bson:"title"`
+		Description string                `bson:"description"`
+		Subject     primitive.ObjectID    `bson:"subject"`
+		Class       primitive.ObjectID    `bson:"class"`
+		Deadline    primitive.DateTime    `bson:"deadline"`
+		Students    []model.StudentStatus `bson:"students"`
+	}
+	var deleteTask = task{}
+	err = collection.FindOneAndDelete(context.Background(), filter).Decode(&deleteTask)
+	if err != nil {
+		log.Println("Failed to delete subject from task collection:", err)
+		return err
+	}
+
+	collection = sc.db.Database("BrainBoard").Collection("subject")
+	filter = bson.M{"title": subject.Title, "class": subject.Class}
 
 	var existingSubject model.Subject
 
 	log.Println("DeleteSubject: Searching for subject= ", subject.Title, " in class= ", subject.ClassTitle)
-	err := collection.FindOneAndDelete(context.Background(), filter).Decode(&existingSubject)
+	err = collection.FindOneAndDelete(context.Background(), filter).Decode(&existingSubject)
 	if err != nil {
 		log.Println("DeleteSubject: Failed could not find subject= ", subject.Title, " in class= ", subject.ClassTitle)
 		return err
@@ -391,4 +416,66 @@ func (sc *SubjectController) GetSubjectsByClass(teacherID primitive.ObjectID, cl
 		subjects = append(subjects, subject)
 	}
 	return subjects, nil
+}
+
+func (sc *SubjectController) GetSubjectIdBySubjectTitle(subjectTitle string) (*primitive.ObjectID, error) {
+	log.Println("Function GetSubjectIdBySubjectTitle called")
+	collection := sc.db.Database("BrainBoard").Collection("subject")
+
+	if !sc.SubjectExists(subjectTitle) {
+		return nil, fmt.Errorf("subject does not exist")
+	}
+	filter := bson.M{"title": subjectTitle}
+	//var id *primitive.ObjectID
+
+	var id struct {
+		ID primitive.ObjectID `bson:"_id"`
+	}
+
+	log.Println("GetSubjectIdBySubjectTitle: Searching for class= ", subjectTitle, " in database")
+	err := collection.FindOne(context.Background(), filter).Decode(&id)
+	if err != nil {
+		log.Println("GetSubjectIdBySubjectTitle: Failed to find class= ", subjectTitle, " Error: ", err)
+		return nil, err
+	}
+
+	log.Println("GetSubjectIdBySubjectTitle: Found class= ", subjectTitle, " in database and id= ", id)
+	log.Println("GetSubjectIdBySubjectTitle: Returned values id= ", id, " error= nil")
+	return &id.ID, nil
+}
+
+func (sc *SubjectController) SubjectExists(title string) bool {
+	log.Println("Function SubjectExists called")
+
+	collection := sc.db.Database("BrainBoard").Collection("subject")
+
+	log.Println("SubjectExists: Searching for subject =", title)
+	cur, err := collection.Find(context.Background(), bson.M{"title": title})
+	if err != nil {
+		log.Println("SubjectExists: Failed to execute the find query:", err)
+		return false
+	}
+	defer cur.Close(context.Background())
+
+	for cur.Next(context.Background()) {
+		var result bson.M
+		err := cur.Decode(&result)
+		if err != nil {
+			log.Println("SubjectExists: Failed to decode document:", err)
+			return false
+		}
+		// Document found, return true
+		log.Println("SubjectExists: Subject =", title, "is in the database")
+		log.Println("SubjectExists: Returned true")
+		return true
+	}
+
+	if cur.Err() != nil {
+		log.Println("SubjectExists: Error occurred while iterating over the cursor:", cur.Err())
+	}
+
+	// No matching documents found, return false
+	log.Println("SubjectExists: Failed to find subject =", title)
+	log.Println("SubjectExists: Returned false")
+	return false
 }
