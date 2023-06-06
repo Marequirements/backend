@@ -64,6 +64,7 @@ func main() {
 	router.Get("/review", taskController.HandleGetTasks)
 	//for tasks in review for students based on path variable
 	router.Put("/review/done", taskController.HandleReviewDone)
+	router.Put("/review/fix", taskController.HandleReviewFix)
 	router.Get("/review/{classTitle}", taskController.HandleGetTasks)
 
 	//returns subjects for add form
