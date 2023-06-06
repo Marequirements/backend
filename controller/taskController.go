@@ -136,7 +136,7 @@ func (tc *TaskController) HandleTeacherTasks(w http.ResponseWriter, r *http.Requ
 	log.Println("HandleTeacherTasks: username= ", username, " userID= ", userId)
 
 	log.Println("HandleTeacherTasks: Getting getting tasks for class= ", classTitle, " user= ", username)
-	tasks, err := tc.GetClassTask(*classId, *userId)
+	tasks, err := tc.GetClassTask(classId, *userId)
 	if err != nil {
 		log.Println("HandleTeacherTasks: Failed to get tasks from classid= ", classId, " userID= ", userId)
 		log.Println("HandleTeacherTasks: Returning status code 500")
@@ -507,7 +507,7 @@ func (tc *TaskController) HandleGetTasks(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	tasks, err := tc.GetTasksWithStatus3(*classID)
+	tasks, err := tc.GetTasksWithStatus3(classID)
 	if err != nil {
 		log.Println("HandleGetTasks: Failed to get tasks")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -571,12 +571,12 @@ func (tc *TaskController) GetIdByUsername(username string) (*primitive.ObjectID,
 	return &id.ID, nil
 }
 
-func (tc *TaskController) GetClassIdByClassTitle(classTitle string) (*primitive.ObjectID, error) {
+func (tc *TaskController) GetClassIdByClassTitle(classTitle string) (primitive.ObjectID, error) {
 	log.Println("Function GetClassIdByClassTitle called")
 	collection := tc.db.Database("BrainBoard").Collection("class")
 
 	if !tc.ClassExists(classTitle) {
-		return nil, fmt.Errorf("class does not exist")
+		return primitive.NilObjectID, fmt.Errorf("class does not exist")
 	}
 
 	filter := bson.M{"name": classTitle}
@@ -590,12 +590,12 @@ func (tc *TaskController) GetClassIdByClassTitle(classTitle string) (*primitive.
 	err := collection.FindOne(context.Background(), filter).Decode(&id)
 	if err != nil {
 		log.Println("GetClassIdByClassTitle: Failed to find class= ", classTitle, " Error: ", err)
-		return nil, err
+		return primitive.NilObjectID, err
 	}
 
 	log.Println("GetClassIdByClassTitle: Found class= ", classTitle, " in database and id= ", id)
 	log.Println("GetClassIdByClassTitle: Returned values id= ", id, " error= nil")
-	return &id.ID, nil
+	return id.ID, nil
 }
 
 func (tc *TaskController) GetSubjectIdBySubjectTitle(subjectTitle string) (*primitive.ObjectID, error) {
@@ -771,7 +771,7 @@ func (tc *TaskController) AddTask(title string, description string, deadline str
 		Deadline:    date,
 		Subject:     *subjectId,
 		Students:    studentStatus,
-		Class:       *classId,
+		Class:       classId,
 	}
 
 	_, err = taskCollection.InsertOne(context.Background(), task)
