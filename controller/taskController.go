@@ -461,21 +461,46 @@ func (tc *TaskController) GetClassTask(class primitive.ObjectID, teacher primiti
 
 }
 
-func (tc *TaskController) GetTasksWithStatus3(id primitive.ObjectID) ([]model.TaskWithStudent, error) {
+func (tc *TaskController) GetTasksWithStatus3(id primitive.ObjectID, teacherid primitive.ObjectID) ([]model.TaskWithStudent, error) {
 	log.Println("Function GetTaskWithStatus3 called")
+
+	// Get a handle to the "subject" collection.
+	subjectCollection := tc.db.Database("BrainBoard").Collection("subject")
+
+	// Find the subjects associated with the teacher.
+	subjectCursor, err := subjectCollection.Find(context.Background(), bson.M{"teacher": bson.M{"$eq": teacherid}})
+	if err != nil {
+		log.Println("GetTaskWithStatus3: Error with finding subjects for the teacher")
+		return nil, err
+	}
+	defer subjectCursor.Close(context.Background())
+
+	// Decode the results.
+	var subjects []model.Subject
+	if err := subjectCursor.All(context.Background(), &subjects); err != nil {
+		log.Println("GetTaskWithStatus3: Failed saving subjects")
+		return nil, err
+	}
+
+	// Extract subject IDs.
+	var subjectIDs []primitive.ObjectID
+	for _, subject := range subjects {
+		subjectIDs = append(subjectIDs, subject.Id)
+	}
+
 	// Get a handle to the "tasks" collection.
-	collection := tc.db.Database("BrainBoard").Collection("task")
+	taskCollection := tc.db.Database("BrainBoard").Collection("task")
 
 	// Define the filter for tasks with students having status "3".
 	filter := bson.M{
 		"class":    bson.M{"$eq": id},
 		"students": bson.M{"$elemMatch": bson.M{"status": "3"}},
+		"subject":  bson.M{"$in": subjectIDs},
 	}
-
 	log.Println("GetTaskWithStatus3: Searching for tasks with status 3 in task collection")
 
 	// Execute the query.
-	cursor, err := collection.Find(context.Background(), filter)
+	cursor, err := taskCollection.Find(context.Background(), filter)
 	if err != nil {
 		log.Println("GetTaskWithStatus3: Error with finding tasks with status 3")
 		return nil, err
@@ -495,7 +520,7 @@ func (tc *TaskController) GetTasksWithStatus3(id primitive.ObjectID) ([]model.Ta
 	subjectTitleMap := make(map[primitive.ObjectID]string)
 
 	// Change collection to the "subject" collection.
-	collection = tc.db.Database("BrainBoard").Collection("subject")
+	collection := tc.db.Database("BrainBoard").Collection("subject")
 
 	// Retrieve subjects for each task
 	for _, task := range tasks {
@@ -564,7 +589,7 @@ func (tc *TaskController) HandleGetTasks(w http.ResponseWriter, r *http.Request)
 	log.Println("HandleGetTasks: Got token= ", authToken)
 
 	log.Println("HandleGetTasks: Getting username from token ", authToken)
-	_, err := util.TeacherLogin(tc.db, tc.ts, w, r)
+	username, err := util.TeacherLogin(tc.db, tc.ts, w, r)
 	if err != nil {
 		return
 	}
@@ -583,7 +608,12 @@ func (tc *TaskController) HandleGetTasks(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	tasks, err := tc.GetTasksWithStatus3(classID)
+	teacherid, err := tc.GetIdByUsername(username)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	tasks, err := tc.GetTasksWithStatus3(classID, *teacherid)
 	if err != nil {
 		log.Println("HandleGetTasks: Failed to get tasks")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
