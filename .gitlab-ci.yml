@@ -1,19 +1,51 @@
 stages:
   - build
-  - run
-
+  - deploy
+  
+variables:
+  DOCKER_HUB_USERNAME: $DOCKER_HUB_USERNAME
+  DOCKER_HUB_PASSWORD: $DOCKER_HUB_PASSWORD
+  DOCKER_HUB_REPO: $DOCKER_HUB_REPO
+  
 build:
- stage: build
- image: docker:latest
- services:
-    - docker:dind 
- script:
-    - docker build -t go  .
-
-run:
-  stage: run
+  stage: build
   image: docker:latest
   services:
-    - docker:dind
+    - docker:dind 
+  before_script:
+    - if docker image inspect go &>/dev/null; then docker image rm go; fi 
   script:
-    - docker run -d go
+    - docker build -t go .
+
+save_image:
+  stage: deploy
+  image:
+    name: docker:stable
+    entrypoint: ["sh", "-c"]
+  services:
+    - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+  before_script:
+    - apk add --no-cache curl
+  script:
+    - docker login -u "$DOCKER_HUB_USERNAME" -p "$DOCKER_HUB_PASSWORD"
+    - docker pull "$DOCKER_HUB_REPO" || true
+    - docker tag "$DOCKER_HUB_REPO" "$DOCKER_HUB_REPO:old" || true
+    - docker push "$DOCKER_HUB_REPO:old" || true
+    - docker rmi "$DOCKER_HUB_REPO:old" || true
+
+deploy:
+  stage: deploy
+  image: docker:stable
+  services:
+    - docker:dind
+  before_script:
+    - docker image rm go  
+    - apk add --no-cache docker-compose
+  script:
+    - cd ~/project  
+    - if docker-compose ps | grep -q 'Up'; then docker-compose down; fi
+    - if docker volume ls -q -f name=project_dist | grep -q project_dist; then docker volume rm project_dist; fi
+    - docker rmi -f "$DOCKER_HUB_REPO" || true
+    - docker-compose up --build -d
